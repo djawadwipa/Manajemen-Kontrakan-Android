@@ -1,11 +1,14 @@
 package id.djawadwipa.manajemenkontrakan.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -53,7 +56,15 @@ fun UnitsScreen(units: List<RentalUnitEntity>, onSave: (RentalUnitEntity) -> Uni
         LazyColumn(Modifier.fillMaxSize().padding(padding)) {
             item { ScreenHeader("Unit & Penyewa", "${units.size} unit tercatat pada perangkat") }
             items(units, key = { it.id }) { unit ->
-                Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .clickable {
+                            editing = unit
+                            showDialog = true
+                        },
+                ) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Column {
@@ -94,10 +105,14 @@ private fun UnitDialog(existing: RentalUnitEntity?, onDismiss: () -> Unit, onSav
         dueDay.toIntOrNull()?.let { it in 1..31 } == true
 
     AlertDialog(
+        modifier = Modifier.imePadding(),
         onDismissRequest = onDismiss,
         title = { Text(if (existing == null) "Tambah unit" else "Edit unit") },
         text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 item { OutlinedTextField(code, { code = it.uppercase() }, label = { Text("ID Unit") }, enabled = existing == null, singleLine = true) }
                 item { OutlinedTextField(name, { name = it }, label = { Text("Nama Unit") }, singleLine = true) }
                 item { OutlinedTextField(tenant, { tenant = it }, label = { Text("Penyewa") }, singleLine = true) }

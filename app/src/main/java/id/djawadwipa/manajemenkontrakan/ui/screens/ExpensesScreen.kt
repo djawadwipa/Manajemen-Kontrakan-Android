@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +22,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -84,10 +87,14 @@ private fun ExpenseDialog(units: List<RentalUnitEntity>, categories: List<Expens
     var unitExpanded by remember { mutableStateOf(false) }
     val valid = description.isNotBlank() && amount.toLongOrNull()?.let { it > 0 } == true && category != null
     AlertDialog(
+        modifier = Modifier.imePadding(),
         onDismissRequest = onDismiss,
         title = { Text("Tambah pengeluaran") },
         text = {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 item { OutlinedTextField(description, { description = it }, label = { Text("Uraian") }) }
                 item { OutlinedTextField(amount, { amount = it.filter(Char::isDigit) }, label = { Text("Nominal") }, singleLine = true) }
                 item {
@@ -148,7 +155,27 @@ private fun ExpenseDialog(units: List<RentalUnitEntity>, categories: List<Expens
                         }
                     }
                 }
-                item { OutlinedTextField(method, { method = it }, label = { Text("Metode") }, singleLine = true) }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Metode pembayaran",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf("Tunai", "Transfer").forEach { option ->
+                                FilterChip(
+                                    selected = method == option,
+                                    onClick = { method = option },
+                                    label = { Text(option) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
                 item { OutlinedTextField(receipt, { receipt = it }, label = { Text("Nomor bukti") }, singleLine = true) }
                 item { Row { Checkbox(include, { include = it }); Text("Masuk laporan laba-rugi usaha", Modifier.padding(top = 12.dp)) } }
             }

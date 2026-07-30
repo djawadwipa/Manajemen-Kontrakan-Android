@@ -41,6 +41,26 @@ object CsvExporter {
         expenses.forEach { e -> appendLine(listOf(e.id, LocalDate.ofEpochDay(e.expenseDate), e.period, e.unitName, e.category, e.groupName, e.description, e.amount, e.method, e.includeInProfitLoss).joinToString(",") { escape(it.toString()) }) }
     }
 
+    fun units(units: List<RentalUnitEntity>): String = buildString {
+        append(unitTemplate())
+        units.forEach { unit ->
+            appendLine(
+                listOf(
+                    unit.code,
+                    unit.name,
+                    unit.tenantName,
+                    unit.frequency,
+                    unit.rate,
+                    unit.intervalMonths,
+                    unit.reservePercent,
+                    unit.status,
+                    unit.dueDay,
+                    unit.notes,
+                ).joinToString(",") { escape(it.toString()) },
+            )
+        }
+    }
+
     fun unitTemplate(): String = "ID Unit,Nama Unit,Penyewa,Frekuensi,Tarif,Interval Bulan,Cadangan,Status,Jatuh Tempo,Catatan\n"
 
     fun parseUnits(csv: String): List<RentalUnitEntity> = csv.lineSequence()

@@ -1,10 +1,13 @@
 package id.djawadwipa.manajemenkontrakan.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -53,12 +56,40 @@ fun InvoicesScreen(
             }
         }
         item {
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("SEMUA", "MENUNGGAK", "CICILAN", "LUNAS").forEach { item -> FilterChip(filter == item, { filter = item }, { Text(item) }) }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf("SEMUA", "MENUNGGAK", "CICILAN", "LUNAS")
+                    .chunked(2)
+                    .forEach { filterRow ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            filterRow.forEach { item ->
+                                FilterChip(
+                                    selected = filter == item,
+                                    onClick = { filter = item },
+                                    label = { Text(item, maxLines = 1) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
             }
         }
         items(filtered, key = { it.id }) { invoice ->
-            Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clickable(enabled = invoice.status != "LUNAS") {
+                        paymentInvoice = invoice
+                    },
+            ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Column {
@@ -88,16 +119,40 @@ private fun PaymentDialog(invoice: InvoiceEntity, onDismiss: () -> Unit, onSave:
     var note by remember { mutableStateOf("") }
     val amountValue = amount.toLongOrNull() ?: 0
     AlertDialog(
+        modifier = Modifier.imePadding(),
         onDismissRequest = onDismiss,
         title = { Text("Catat pembayaran") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("${invoice.unitId} • ${invoice.tenantName} • ${invoice.period}")
-                Text("Sisa ${remaining.toRupiah()}", style = MaterialTheme.typography.titleMedium)
-                OutlinedTextField(amount, { amount = it.filter(Char::isDigit) }, label = { Text("Nominal") }, singleLine = true)
-                OutlinedTextField(method, { method = it }, label = { Text("Metode") }, singleLine = true)
-                OutlinedTextField(receipt, { receipt = it }, label = { Text("Nomor bukti") }, singleLine = true)
-                OutlinedTextField(note, { note = it }, label = { Text("Catatan") })
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 360.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                item { Text("${invoice.unitId} • ${invoice.tenantName} • ${invoice.period}") }
+                item { Text("Sisa ${remaining.toRupiah()}", style = MaterialTheme.typography.titleMedium) }
+                item { OutlinedTextField(amount, { amount = it.filter(Char::isDigit) }, label = { Text("Nominal") }, singleLine = true) }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Metode pembayaran",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            listOf("Tunai", "Transfer").forEach { option ->
+                                FilterChip(
+                                    selected = method == option,
+                                    onClick = { method = option },
+                                    label = { Text(option) },
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    }
+                }
+                item { OutlinedTextField(receipt, { receipt = it }, label = { Text("Nomor bukti") }, singleLine = true) }
+                item { OutlinedTextField(note, { note = it }, label = { Text("Catatan") }) }
             }
         },
         confirmButton = { Button(enabled = amountValue in 1..remaining, onClick = { onSave(amountValue, method, receipt, note) }) { Text("Simpan") } },

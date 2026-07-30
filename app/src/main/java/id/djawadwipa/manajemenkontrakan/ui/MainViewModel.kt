@@ -105,6 +105,10 @@ class MainViewModel @Inject constructor(private val repository: RentalRepository
         _pendingCsv.value = CsvExporter.report(s.units, s.invoices, s.payments, s.expenses).encodeToByteArray()
     }
 
+    fun prepareUnitsCsv() = viewModelScope.launch {
+        _pendingCsv.value = CsvExporter.units(state.value.units).encodeToByteArray()
+    }
+
     fun importUnitsCsv(text: String) = launchAction("Data unit berhasil diimpor") {
         CsvExporter.parseUnits(text).forEach { repository.upsertUnit(it) }
     }

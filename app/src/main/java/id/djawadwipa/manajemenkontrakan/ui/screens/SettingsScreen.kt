@@ -18,10 +18,13 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -38,6 +41,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.djawadwipa.manajemenkontrakan.BuildConfig
@@ -58,6 +63,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val pendingBackup by viewModel.pendingBackup.collectAsStateWithLifecycle()
+    val pendingCsv by viewModel.pendingCsv.collectAsStateWithLifecycle()
     var passwordAction by remember { mutableStateOf<PasswordAction?>(null) }
     var restoreBytes by remember { mutableStateOf<ByteArray?>(null) }
     var year by remember(state.settings.activeYear) { mutableStateOf(state.settings.activeYear.toString()) }
@@ -80,9 +86,19 @@ fun SettingsScreen(
     val createTemplate = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         uri?.let { writeBytes(context, it, CsvExporter.unitTemplate().encodeToByteArray()) }
     }
+    val createUnitsCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        uri?.let { pendingCsv?.let { bytes -> writeBytes(context, it, bytes) } }
+        viewModel.clearPendingCsv()
+    }
 
     LaunchedEffect(pendingBackup) {
         if (pendingBackup != null) createBackup.launch("manajemen-kontrakan-${state.settings.activeYear}.mkbackup")
+    }
+
+    LaunchedEffect(pendingCsv) {
+        if (pendingCsv != null) {
+            createUnitsCsv.launch("unit-kontrakan-${state.settings.activeYear}.csv")
+        }
     }
 
     LazyColumn(Modifier.fillMaxSize()) {
@@ -117,7 +133,9 @@ fun SettingsScreen(
             Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Backup terenkripsi", style = MaterialTheme.typography.titleLarge)
-                    Text("AES-256-GCM, PBKDF2, dan pemeriksaan checksum SHA-256. Kata sandi tidak disimpan.")
+                    Text(
+                        "Gunakan backup untuk memindahkan seluruh data aplikasi ke HP lain: unit, tagihan, pembayaran, pengeluaran, kategori, dan pengaturan. Kata sandi tidak disimpan.",
+                    )
                     Button(onClick = { passwordAction = PasswordAction.BACKUP }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Download, null); Text(" Buat backup .mkbackup") }
                     Button(onClick = { openBackup.launch(arrayOf("application/octet-stream", "*/*")) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileOpen, null); Text(" Pulihkan backup") }
                 }
@@ -125,11 +143,51 @@ fun SettingsScreen(
         }
         item {
             Card(Modifier.fillMaxWidth().padding(16.dp)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Impor unit CSV", style = MaterialTheme.typography.titleLarge)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { createTemplate.launch("template-unit-kontrakan.csv") }, modifier = Modifier.weight(1f)) { Text("Template") }
-                        Button(onClick = { openCsv.launch(arrayOf("text/csv", "text/comma-separated-values", "*/*")) }, modifier = Modifier.weight(1f)) { Text("Impor") }
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "Ekspor dan Impor Unit CSV",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        "CSV digunakan untuk memindahkan daftar unit dan penyewa. Untuk seluruh data aplikasi, gunakan backup .mkbackup.",
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Button(
+                            onClick = viewModel::prepareUnitsCsv,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null)
+                            Text(" Ekspor")
+                        }
+                        Button(
+                            onClick = {
+                                openCsv.launch(
+                                    arrayOf(
+                                        "text/csv",
+                                        "text/comma-separated-values",
+                                        "*/*",
+                                    ),
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(Icons.Default.FileOpen, contentDescription = null)
+                            Text(" Impor")
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            createTemplate.launch("template-unit-kontrakan.csv")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Unduh template CSV")
                     }
                 }
             }
@@ -153,9 +211,12 @@ fun SettingsScreen(
         }
         item {
             Text(
-                "Versi ${BuildConfig.VERSION_NAME} • Djawa Dwipa",
-                modifier = Modifier.padding(20.dp),
+                text = "Versi ${BuildConfig.VERSION_NAME} • Djawa Dwipa • fanyagung@gmail.com",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
             )
         }
     }
@@ -193,22 +254,122 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun PasswordDialog(creating: Boolean, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
+private fun PasswordDialog(
+    creating: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
     var password by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
-    val valid = password.length >= 8 && (!creating || password == confirmation)
+    var passwordVisible by remember { mutableStateOf(false) }
+    var confirmationVisible by remember { mutableStateOf(false) }
+
+    val valid =
+        password.length >= 8 &&
+            (!creating || password == confirmation)
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (creating) "Kata sandi backup" else "Buka backup") },
+        title = {
+            Text(if (creating) "Kata sandi backup" else "Buka backup")
+        },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(if (creating) "Gunakan minimal 8 karakter. Simpan kata sandi dengan aman; aplikasi tidak menyimpannya." else "Masukkan kata sandi yang digunakan saat backup dibuat.")
-                OutlinedTextField(password, { password = it }, label = { Text("Kata sandi") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
-                if (creating) OutlinedTextField(confirmation, { confirmation = it }, label = { Text("Ulangi kata sandi") }, visualTransformation = PasswordVisualTransformation(), singleLine = true)
+                Text(
+                    if (creating) {
+                        "Gunakan minimal 8 karakter. Simpan kata sandi dengan aman; aplikasi tidak menyimpannya."
+                    } else {
+                        "Masukkan kata sandi yang digunakan saat backup dibuat."
+                    },
+                )
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Kata sandi") },
+                    visualTransformation =
+                        if (passwordVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                passwordVisible = !passwordVisible
+                            },
+                        ) {
+                            Icon(
+                                imageVector =
+                                    if (passwordVisible) {
+                                        Icons.Default.VisibilityOff
+                                    } else {
+                                        Icons.Default.Visibility
+                                    },
+                                contentDescription =
+                                    if (passwordVisible) {
+                                        "Sembunyikan kata sandi"
+                                    } else {
+                                        "Tampilkan kata sandi"
+                                    },
+                            )
+                        }
+                    },
+                    singleLine = true,
+                )
+
+                if (creating) {
+                    OutlinedTextField(
+                        value = confirmation,
+                        onValueChange = { confirmation = it },
+                        label = { Text("Ulangi kata sandi") },
+                        visualTransformation =
+                            if (confirmationVisible) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                        trailingIcon = {
+                            IconButton(
+                                onClick = {
+                                    confirmationVisible =
+                                        !confirmationVisible
+                                },
+                            ) {
+                                Icon(
+                                    imageVector =
+                                        if (confirmationVisible) {
+                                            Icons.Default.VisibilityOff
+                                        } else {
+                                            Icons.Default.Visibility
+                                        },
+                                    contentDescription =
+                                        if (confirmationVisible) {
+                                            "Sembunyikan kata sandi"
+                                        } else {
+                                            "Tampilkan kata sandi"
+                                        },
+                                )
+                            }
+                        },
+                        singleLine = true,
+                    )
+                }
             }
         },
-        confirmButton = { Button(enabled = valid, onClick = { onConfirm(password) }) { Text(if (creating) "Lanjutkan" else "Pulihkan") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Batal") } },
+        confirmButton = {
+            Button(
+                enabled = valid,
+                onClick = { onConfirm(password) },
+            ) {
+                Text(if (creating) "Lanjutkan" else "Pulihkan")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Batal")
+            }
+        },
     )
 }
 
