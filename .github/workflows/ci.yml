@@ -30,7 +30,7 @@ jobs:
         run: ./scripts/verify-native-only.sh
 
       - name: Test, lint, and create release artifacts
-        run: gradle --no-daemon --stacktrace clean test lintRelease assembleRelease bundleRelease
+        run: gradle --no-daemon --stacktrace --max-workers=1 clean test lintRelease assembleRelease bundleRelease
 
       - name: Upload quality reports
         if: always()
