@@ -90,9 +90,9 @@ fun ReportsScreen(state: MainUiState, viewModel: MainViewModel) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 KpiCard(
-                    title = "Surplus usaha",
+                    label = "Surplus usaha",
                     value = businessSurplus.toRupiah(),
-                    subtitle = "Ketuk untuk rincian",
+                    supporting = "Ketuk untuk rincian",
                     modifier = Modifier.weight(1f),
                     onClick = {
                         detail = "Surplus usaha" to buildString {
@@ -111,9 +111,9 @@ fun ReportsScreen(state: MainUiState, viewModel: MainViewModel) {
                 )
 
                 KpiCard(
-                    title = "Saldo akhir",
+                    label = "Saldo akhir",
                     value = state.cashBalance.toRupiah(),
-                    subtitle = "Ketuk untuk rincian",
+                    supporting = "Ketuk untuk rincian",
                     modifier = Modifier.weight(1f),
                     onClick = {
                         detail = "Saldo akhir" to buildString {
@@ -138,9 +138,9 @@ fun ReportsScreen(state: MainUiState, viewModel: MainViewModel) {
 
         item {
             KpiCard(
-                title = "Dana cadangan",
+                label = "Dana cadangan",
                 value = state.reserveFund.toRupiah(),
-                subtitle = "Alokasi $reservePercent% • ketuk untuk rincian",
+                supporting = "Alokasi $reservePercent% • ketuk untuk rincian",
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 12.dp),
