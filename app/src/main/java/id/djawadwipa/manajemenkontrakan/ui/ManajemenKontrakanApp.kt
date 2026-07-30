@@ -44,13 +44,20 @@ private val destinations = listOf(
 )
 
 @Composable
-fun ManajemenKontrakanApp(viewModel: MainViewModel) {
+fun ManajemenKontrakanApp(viewModel: MainViewModel, onExit: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+    val openDestination: (String) -> Unit = { route ->
+        navController.navigate(route) {
+            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
 
     LaunchedEffect(message) {
         message?.let {
@@ -66,13 +73,7 @@ fun ManajemenKontrakanApp(viewModel: MainViewModel) {
                 destinations.forEach { destination ->
                     NavigationBarItem(
                         selected = currentRoute == destination.route,
-                        onClick = {
-                            navController.navigate(destination.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
+                        onClick = { openDestination(destination.route) },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
                         label = { Text(destination.label) },
                     )
@@ -81,12 +82,20 @@ fun ManajemenKontrakanApp(viewModel: MainViewModel) {
         },
     ) { padding ->
         NavHost(navController, startDestination = "dashboard", modifier = Modifier.padding(padding)) {
-            composable("dashboard") { DashboardScreen(state) }
+            composable("dashboard") {
+                DashboardScreen(
+                    state = state,
+                    onOpenReports = { openDestination("reports") },
+                    onOpenInvoices = { openDestination("invoices") },
+                    onOpenUnits = { openDestination("units") },
+                    onOpenExpenses = { openDestination("expenses") },
+                )
+            }
             composable("units") { UnitsScreen(state.units, viewModel::saveUnit, viewModel::deleteUnit) }
             composable("invoices") { InvoicesScreen(state.invoices, state.settings, viewModel::recordPayment, viewModel::regenerateInvoices) }
             composable("expenses") { ExpensesScreen(state, viewModel::saveExpense, viewModel::deleteExpense) }
             composable("reports") { ReportsScreen(state, viewModel) }
-            composable("settings") { SettingsScreen(state, viewModel) }
+            composable("settings") { SettingsScreen(state, viewModel, onExit) }
         }
     }
 }

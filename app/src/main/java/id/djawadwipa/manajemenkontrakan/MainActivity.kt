@@ -18,7 +18,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ManajemenKontrakanTheme {
                 val mainViewModel: MainViewModel = viewModel()
-                ManajemenKontrakanApp(mainViewModel)
+                ManajemenKontrakanApp(mainViewModel, onExit = { finishAffinity() })
             }
         }
     }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material3.AlertDialog
@@ -22,6 +23,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -48,7 +50,11 @@ import id.djawadwipa.manajemenkontrakan.util.CsvExporter
 private enum class PasswordAction { BACKUP, RESTORE }
 
 @Composable
-fun SettingsScreen(state: MainUiState, viewModel: MainViewModel) {
+fun SettingsScreen(
+    state: MainUiState,
+    viewModel: MainViewModel,
+    onExit: () -> Unit,
+) {
     val context = LocalContext.current
     val pendingBackup by viewModel.pendingBackup.collectAsStateWithLifecycle()
     var passwordAction by remember { mutableStateOf<PasswordAction?>(null) }
@@ -58,6 +64,7 @@ fun SettingsScreen(state: MainUiState, viewModel: MainViewModel) {
     var openingCash by remember(state.settings.openingCash) { mutableStateOf(state.settings.openingCash.toString()) }
     var reserve by remember(state.settings.reservePercent) { mutableStateOf((state.settings.reservePercent * 100).toInt().toString()) }
     var dueDay by remember(state.settings.defaultDueDay) { mutableStateOf(state.settings.defaultDueDay.toString()) }
+    var showExitDialog by remember { mutableStateOf(false) }
 
     val createBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         uri?.let { pendingBackup?.let { bytes -> writeBytes(context, it, bytes) } }
@@ -126,7 +133,30 @@ fun SettingsScreen(state: MainUiState, viewModel: MainViewModel) {
                 }
             }
         }
-        item { Text("Versi 0.1.0 • ${state.units.size} unit • tanpa akun dan tanpa cloud", Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        item {
+            Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("Aplikasi", style = MaterialTheme.typography.titleLarge)
+                    OutlinedButton(
+                        onClick = { showExitDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Default.ExitToApp, contentDescription = null)
+                        Text(" Keluar aplikasi")
+                    }
+                }
+            }
+        }
+        item {
+            Text(
+                "Versi 0.1.0 • Djawa Dwipa",
+                modifier = Modifier.padding(20.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 
     passwordAction?.let { action ->
@@ -135,6 +165,29 @@ fun SettingsScreen(state: MainUiState, viewModel: MainViewModel) {
             passwordAction = null
             restoreBytes = null
         }
+    }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title = { Text("Keluar dari aplikasi?") },
+            text = { Text("Semua data tetap tersimpan lokal dan tidak akan dihapus.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showExitDialog = false
+                        onExit()
+                    },
+                ) {
+                    Text("Keluar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExitDialog = false }) {
+                    Text("Batal")
+                }
+            },
+        )
     }
 }
 

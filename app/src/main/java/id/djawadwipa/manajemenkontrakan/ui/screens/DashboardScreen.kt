@@ -27,7 +27,13 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 @Composable
-fun DashboardScreen(state: MainUiState) {
+fun DashboardScreen(
+    state: MainUiState,
+    onOpenReports: () -> Unit,
+    onOpenInvoices: () -> Unit,
+    onOpenUnits: () -> Unit,
+    onOpenExpenses: () -> Unit,
+) {
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             val month = Month.of(state.settings.dashboardMonth.coerceIn(1, 12))
@@ -36,20 +42,20 @@ fun DashboardScreen(state: MainUiState) {
         }
         item {
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                KpiCard("Saldo kas", state.cashBalance.toRupiah(), "Saldo kumulatif", Modifier.weight(1f))
-                KpiCard("Piutang bulan", state.dashboardReceivable.toRupiah(), "${state.dashboardOverdue} menunggak", Modifier.weight(1f))
+                KpiCard("Saldo kas", state.cashBalance.toRupiah(), "Saldo kumulatif", modifier = Modifier.weight(1f), onClick = onOpenReports)
+                KpiCard("Piutang bulan", state.dashboardReceivable.toRupiah(), "${state.dashboardOverdue} menunggak", modifier = Modifier.weight(1f), onClick = onOpenInvoices)
             }
         }
         item {
             Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                KpiCard("Unit terisi", "${state.activeUnits}/${state.units.size}", "Okupansi ${(state.occupancyRate * 100).toInt()}%", Modifier.weight(1f))
-                KpiCard("Penerimaan bulan", state.dashboardReceived.toRupiah(), "Koleksi ${(state.dashboardCollectionRate * 100).toInt()}%", Modifier.weight(1f))
+                KpiCard("Unit terisi", "${state.activeUnits}/${state.units.size}", "Okupansi ${(state.occupancyRate * 100).toInt()}%", modifier = Modifier.weight(1f), onClick = onOpenUnits)
+                KpiCard("Penerimaan bulan", state.dashboardReceived.toRupiah(), "Koleksi ${(state.dashboardCollectionRate * 100).toInt()}%", modifier = Modifier.weight(1f), onClick = onOpenInvoices)
             }
         }
         item {
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                KpiCard("Pengeluaran bulan", state.dashboardExpenses.toRupiah(), modifier = Modifier.weight(1f))
-                KpiCard("Dana perbaikan", state.reserveFund.toRupiah(), modifier = Modifier.weight(1f))
+                KpiCard("Pengeluaran bulan", state.dashboardExpenses.toRupiah(), modifier = Modifier.weight(1f), onClick = onOpenExpenses)
+                KpiCard("Dana perbaikan", state.reserveFund.toRupiah(), modifier = Modifier.weight(1f), onClick = onOpenReports)
             }
         }
         item {

@@ -1,5 +1,6 @@
 package id.djawadwipa.manajemenkontrakan.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,9 +25,17 @@ fun ScreenHeader(title: String, subtitle: String, modifier: Modifier = Modifier)
 }
 
 @Composable
-fun KpiCard(label: String, value: String, supporting: String? = null, modifier: Modifier = Modifier) {
+fun KpiCard(
+    label: String,
+    value: String,
+    supporting: String? = null,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
     Card(
-        modifier = modifier,
+        modifier = modifier.then(
+            if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+        ),
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
