@@ -40,6 +40,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import id.djawadwipa.manajemenkontrakan.BuildConfig
 import id.djawadwipa.manajemenkontrakan.R
 import id.djawadwipa.manajemenkontrakan.data.local.AppSettingEntity
 import id.djawadwipa.manajemenkontrakan.ui.MainUiState
@@ -152,7 +153,7 @@ fun SettingsScreen(
         }
         item {
             Text(
-                "Versi 0.1.0 • Djawa Dwipa",
+                "Versi ${BuildConfig.VERSION_NAME} • Djawa Dwipa",
                 modifier = Modifier.padding(20.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
