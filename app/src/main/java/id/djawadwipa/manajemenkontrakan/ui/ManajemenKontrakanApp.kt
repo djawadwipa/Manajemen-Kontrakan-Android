@@ -20,6 +20,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -35,12 +37,12 @@ import id.djawadwipa.manajemenkontrakan.ui.screens.UnitsScreen
 
 private data class Destination(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 private val destinations = listOf(
-    Destination("dashboard", "Dashboard", Icons.Default.Dashboard),
+    Destination("dashboard", "Dasbor", Icons.Default.Dashboard),
     Destination("units", "Unit", Icons.Default.Apartment),
     Destination("invoices", "Tagihan", Icons.Default.ReceiptLong),
-    Destination("expenses", "Pengeluaran", Icons.Default.Payments),
+    Destination("expenses", "Biaya", Icons.Default.Payments),
     Destination("reports", "Laporan", Icons.Default.Assessment),
-    Destination("settings", "Pengaturan", Icons.Default.Settings),
+    Destination("settings", "Atur", Icons.Default.Settings),
 )
 
 @Composable
@@ -75,7 +77,15 @@ fun ManajemenKontrakanApp(viewModel: MainViewModel, onExit: () -> Unit) {
                         selected = currentRoute == destination.route,
                         onClick = { openDestination(destination.route) },
                         icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = { Text(destination.label) },
+                        label = {
+                            Text(
+                                text = destination.label,
+                                maxLines = 1,
+                                softWrap = false,
+                                overflow = TextOverflow.Clip,
+                                fontSize = 10.sp,
+                            )
+                        },
                     )
                 }
             }

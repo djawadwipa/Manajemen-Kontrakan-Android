@@ -14,6 +14,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -89,8 +91,25 @@ private fun MonthlyBarChart(state: MainUiState, modifier: Modifier = Modifier) {
             }
             drawLine(Color.Gray.copy(alpha = 0.35f), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
-            summaries.forEach { Text(it.month.month.getDisplayName(TextStyle.NARROW, Locale.forLanguageTag("id-ID")), style = MaterialTheme.typography.labelSmall) }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(38.dp)
+                .padding(top = 6.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+        ) {
+            summaries.forEach { summary ->
+                Text(
+                    text = summary.month.month.getDisplayName(
+                        TextStyle.SHORT,
+                        Locale.forLanguageTag("id-ID"),
+                    ),
+                    modifier = Modifier.rotate(-35f),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontStyle = FontStyle.Italic,
+                    maxLines = 1,
+                )
+            }
         }
     }
 }
