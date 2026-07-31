@@ -131,7 +131,13 @@ interface ExpenseCategoryDao {
     suspend fun getAll(): List<ExpenseCategoryEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(item: ExpenseCategoryEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(items: List<ExpenseCategoryEntity>)
+
+    @Delete
+    suspend fun delete(item: ExpenseCategoryEntity)
 
     @Query("DELETE FROM expense_categories")
     suspend fun deleteAll()
