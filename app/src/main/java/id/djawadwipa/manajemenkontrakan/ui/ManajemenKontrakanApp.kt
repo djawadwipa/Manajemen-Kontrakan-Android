@@ -31,6 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import id.djawadwipa.manajemenkontrakan.ui.screens.DashboardScreen
+import id.djawadwipa.manajemenkontrakan.ui.screens.ExpenseCategoriesScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.ExpensesScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.InvoiceDetailScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.InvoicesScreen
@@ -229,6 +230,19 @@ fun ManajemenKontrakanApp(
                     state = state,
                     onSave = viewModel::saveExpense,
                     onDelete = viewModel::deleteExpense,
+                    onOpenCategories = {
+                        navController.navigate("expense-categories")
+                    },
+                )
+            }
+
+            composable("expense-categories") {
+                ExpenseCategoriesScreen(
+                    categories = state.categories,
+                    expenses = state.expenses,
+                    onBack = { navController.popBackStack() },
+                    onSave = viewModel::saveExpenseCategory,
+                    onDelete = viewModel::deleteExpenseCategory,
                 )
             }
 
