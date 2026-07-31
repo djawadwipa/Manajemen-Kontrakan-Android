@@ -1,25 +1,21 @@
 package id.djawadwipa.manajemenkontrakan
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.fragment.app.FragmentActivity
 import dagger.hilt.android.AndroidEntryPoint
-import id.djawadwipa.manajemenkontrakan.ui.ManajemenKontrakanApp
-import id.djawadwipa.manajemenkontrakan.ui.MainViewModel
-import id.djawadwipa.manajemenkontrakan.ui.theme.ManajemenKontrakanTheme
+import id.djawadwipa.manajemenkontrakan.ui.ManajemenKontrakanRoot
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         setContent {
-            ManajemenKontrakanTheme {
-                val mainViewModel: MainViewModel = viewModel()
-                ManajemenKontrakanApp(mainViewModel, onExit = { finishAffinity() })
-            }
+            ManajemenKontrakanRoot(
+                onExit = { finishAffinity() },
+            )
         }
     }
 }
