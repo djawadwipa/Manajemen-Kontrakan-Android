@@ -1,5 +1,6 @@
 package id.djawadwipa.manajemenkontrakan.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -70,6 +71,7 @@ data class PaymentEntity(
     val method: String,
     val receiptNumber: String = "",
     val note: String = "",
+    @ColumnInfo(defaultValue = "'AKTIF'")
     val status: String = "AKTIF",
     val canceledAt: Long? = null,
 )
@@ -120,14 +122,24 @@ data class AppSettingEntity(
     val reservePercent: Double = 0.15,
     val defaultDueDay: Int = 10,
     val bookStatus: String = "OPEN",
+    @ColumnInfo(defaultValue = "''")
     val closedPeriods: String = "",
+    @ColumnInfo(defaultValue = "0")
     val notificationEnabled: Boolean = false,
+    @ColumnInfo(defaultValue = "3")
     val dueReminderDays: Int = 3,
+    @ColumnInfo(defaultValue = "8")
     val notificationHour: Int = 8,
+    @ColumnInfo(defaultValue = "'SYSTEM'")
     val themeMode: String = "SYSTEM",
+    @ColumnInfo(defaultValue = "0")
     val lockEnabled: Boolean = false,
+    @ColumnInfo(defaultValue = "''")
     val pinSalt: String = "",
+    @ColumnInfo(defaultValue = "''")
     val pinHash: String = "",
+    @ColumnInfo(defaultValue = "0")
     val biometricEnabled: Boolean = false,
+    @ColumnInfo(defaultValue = "1")
     val autoLockMinutes: Int = 1,
 )
