@@ -51,9 +51,7 @@ fun UnitsScreen(
     onSave: (RentalUnitEntity) -> Unit,
     onDelete: (RentalUnitEntity) -> Unit,
 ) {
-    var editing by remember {
-        mutableStateOf<RentalUnitEntity?>(null)
-    }
+    var editing by remember { mutableStateOf<RentalUnitEntity?>(null) }
     var showDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -69,7 +67,7 @@ fun UnitsScreen(
         },
     ) { padding ->
         LazyColumn(
-            Modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
@@ -90,11 +88,11 @@ fun UnitsScreen(
                         },
                 ) {
                     Column(
-                        Modifier.padding(16.dp),
+                        modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Row(
-                            Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Column {
@@ -116,9 +114,7 @@ fun UnitsScreen(
                                 ) {
                                     Icon(Icons.Default.Edit, "Edit")
                                 }
-                                IconButton(
-                                    onClick = { onDelete(unit) },
-                                ) {
+                                IconButton(onClick = { onDelete(unit) }) {
                                     Icon(Icons.Default.Delete, "Hapus")
                                 }
                             }
@@ -130,7 +126,7 @@ fun UnitsScreen(
                         )
                         LabelValue(
                             "Cadangan per tagihan",
-                            formatPercent(unit.reservePercent),
+                            percentLabel(unit.reservePercent),
                         )
                         LabelValue("Status", unit.status)
                     }
@@ -176,18 +172,7 @@ private fun UnitDialog(
         mutableStateOf(existing?.dueDay?.toString() ?: "10")
     }
     var reservePercent by remember(existing) {
-        mutableStateOf(
-            ((existing?.reservePercent ?: 0.15) * 100.0)
-                .let { value ->
-                    if (value % 1.0 == 0.0) {
-                        value.toInt().toString()
-                    } else {
-                        String.format(Locale.ROOT, "%.2f", value)
-                            .trimEnd('0')
-                            .trimEnd('.')
-                    }
-                },
-        )
+        mutableStateOf(percentInput(existing?.reservePercent ?: 0.15))
     }
     var status by remember(existing) {
         mutableStateOf(existing?.status ?: "Aktif")
@@ -209,14 +194,12 @@ private fun UnitDialog(
     }?.second ?: 1
     val parsedRate = rate.toLongOrNull()
     val parsedDueDay = dueDay.toIntOrNull()
-    val parsedReservePercent = reservePercent.toDoubleOrNull()
+    val parsedReserve = reservePercent.toDoubleOrNull()
     val valid = code.isNotBlank() &&
         name.isNotBlank() &&
-        parsedRate != null &&
-        parsedRate >= 0L &&
-        parsedDueDay in 1..31 &&
-        parsedReservePercent != null &&
-        parsedReservePercent in 0.0..100.0
+        parsedRate != null && parsedRate >= 0L &&
+        parsedDueDay?.let { it in 1..31 } == true &&
+        parsedReserve?.let { it in 0.0..100.0 } == true
 
     AlertDialog(
         modifier = Modifier.imePadding(),
@@ -269,34 +252,17 @@ private fun UnitDialog(
                     )
                 }
                 item {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedButton(
-                            onClick = { frequencyExpanded = true },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Frekuensi: $frequency")
-                            Icon(
-                                Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = frequencyExpanded,
-                            onDismissRequest = {
-                                frequencyExpanded = false
-                            },
-                        ) {
-                            frequencies.forEach { item ->
-                                DropdownMenuItem(
-                                    text = { Text(item.first) },
-                                    onClick = {
-                                        frequency = item.first
-                                        frequencyExpanded = false
-                                    },
-                                )
-                            }
-                        }
-                    }
+                    SelectorButton(
+                        label = "Frekuensi: $frequency",
+                        expanded = frequencyExpanded,
+                        onExpand = { frequencyExpanded = true },
+                        onDismiss = { frequencyExpanded = false },
+                        options = frequencies.map { it.first },
+                        onSelect = {
+                            frequency = it
+                            frequencyExpanded = false
+                        },
+                    )
                 }
                 item {
                     OutlinedTextField(
@@ -305,7 +271,7 @@ private fun UnitDialog(
                             dueDay = it.filter(Char::isDigit)
                         },
                         label = { Text("Tanggal jatuh tempo") },
-                        isError = parsedDueDay !in 1..31,
+                        isError = parsedDueDay?.let { it !in 1..31 } ?: true,
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -314,50 +280,32 @@ private fun UnitDialog(
                     OutlinedTextField(
                         value = reservePercent,
                         onValueChange = {
-                            reservePercent = it.filter { char ->
-                                char.isDigit() || char == '.' || char == ','
-                            }.replace(',', '.')
+                            reservePercent = it
+                                .filter { char ->
+                                    char.isDigit() || char == '.' || char == ','
+                                }
+                                .replace(',', '.')
                         },
                         label = { Text("Cadangan per tagihan (%)") },
-                        supportingText = {
-                            Text("Nilai 0 sampai 100 persen")
-                        },
-                        isError = parsedReservePercent == null ||
-                            parsedReservePercent !in 0.0..100.0,
+                        supportingText = { Text("Nilai 0 sampai 100") },
+                        isError = parsedReserve
+                            ?.let { it !in 0.0..100.0 } ?: true,
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 item {
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        OutlinedButton(
-                            onClick = { statusExpanded = true },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text("Status: $status")
-                            Icon(
-                                Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                            )
-                        }
-                        DropdownMenu(
-                            expanded = statusExpanded,
-                            onDismissRequest = {
-                                statusExpanded = false
-                            },
-                        ) {
-                            listOf("Aktif", "Kosong", "Nonaktif")
-                                .forEach { item ->
-                                    DropdownMenuItem(
-                                        text = { Text(item) },
-                                        onClick = {
-                                            status = item
-                                            statusExpanded = false
-                                        },
-                                    )
-                                }
-                        }
-                    }
+                    SelectorButton(
+                        label = "Status: $status",
+                        expanded = statusExpanded,
+                        onExpand = { statusExpanded = true },
+                        onDismiss = { statusExpanded = false },
+                        options = listOf("Aktif", "Kosong", "Nonaktif"),
+                        onSelect = {
+                            status = it
+                            statusExpanded = false
+                        },
+                    )
                 }
                 item {
                     OutlinedTextField(
@@ -375,10 +323,9 @@ private fun UnitDialog(
                 onClick = {
                     onSave(
                         RentalUnitEntity(
-                            id = existing?.id
-                                ?: code.ifBlank {
-                                    UUID.randomUUID().toString()
-                                },
+                            id = existing?.id ?: code.ifBlank {
+                                UUID.randomUUID().toString()
+                            },
                             code = code.trim(),
                             name = name.trim(),
                             tenantName = tenant.trim(),
@@ -386,7 +333,7 @@ private fun UnitDialog(
                             rate = requireNotNull(parsedRate),
                             intervalMonths = interval,
                             reservePercent =
-                                requireNotNull(parsedReservePercent) / 100.0,
+                                requireNotNull(parsedReserve) / 100.0,
                             status = status,
                             dueDay = requireNotNull(parsedDueDay),
                             notes = notes.trim(),
@@ -405,13 +352,41 @@ private fun UnitDialog(
     )
 }
 
-private fun formatPercent(value: Double): String {
-    val percentage = value * 100.0
-    return if (percentage % 1.0 == 0.0) {
-        "${percentage.toInt()}%"
-    } else {
-        String.format(Locale.ROOT, "%.2f%%", percentage)
-            .replace(".00%", "%")
-            .replace("0%", "%")
+@Composable
+private fun SelectorButton(
+    label: String,
+    expanded: Boolean,
+    onExpand: () -> Unit,
+    onDismiss: () -> Unit,
+    options: List<String>,
+    onSelect: (String) -> Unit,
+) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = onExpand,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(label)
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = onDismiss,
+        ) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = { onSelect(option) },
+                )
+            }
+        }
     }
 }
+
+private fun percentInput(value: Double): String =
+    String.format(Locale.ROOT, "%.2f", value * 100.0)
+        .trimEnd('0')
+        .trimEnd('.')
+
+private fun percentLabel(value: Double): String =
+    "${percentInput(value)}%"
