@@ -3,6 +3,7 @@ package id.djawadwipa.manajemenkontrakan.data.repository
 import androidx.room.withTransaction
 import id.djawadwipa.manajemenkontrakan.data.local.AppDatabase
 import id.djawadwipa.manajemenkontrakan.data.local.AppSettingEntity
+import id.djawadwipa.manajemenkontrakan.data.local.ExpenseCategoryEntity
 import id.djawadwipa.manajemenkontrakan.data.local.ExpenseEntity
 import id.djawadwipa.manajemenkontrakan.data.local.InvoiceEntity
 import id.djawadwipa.manajemenkontrakan.data.local.PaymentEntity
@@ -299,6 +300,70 @@ class RentalRepository @Inject constructor(
 
     suspend fun deleteExpense(expense: ExpenseEntity) =
         database.expenseDao().delete(expense)
+
+    suspend fun upsertExpenseCategory(category: ExpenseCategoryEntity) =
+        database.withTransaction {
+            val cleaned = category.copy(
+                name = category.name.trim(),
+                groupName = category.groupName.trim(),
+                profitLossRule = category.profitLossRule.trim(),
+            )
+            require(cleaned.name.isNotBlank()) {
+                "Nama kategori wajib diisi."
+            }
+            require(cleaned.groupName.isNotBlank()) {
+                "Kelompok kategori wajib dipilih."
+            }
+            require(cleaned.profitLossRule.isNotBlank()) {
+                "Aturan laba-rugi wajib dipilih."
+            }
+
+            val categories = database.expenseCategoryDao().getAll()
+            require(
+                categories.none {
+                    it.id != cleaned.id &&
+                        it.name.equals(cleaned.name, ignoreCase = true)
+                },
+            ) {
+                "Nama kategori sudah digunakan."
+            }
+
+            val existing = categories.firstOrNull { it.id == cleaned.id }
+            database.expenseCategoryDao().upsert(cleaned)
+
+            if (existing != null) {
+                val updatedExpenses = database.expenseDao().getAll()
+                    .filter { it.category == existing.name }
+                    .map { expense ->
+                        expense.copy(
+                            category = cleaned.name,
+                            groupName = cleaned.groupName,
+                            includeInProfitLoss = when (
+                                cleaned.profitLossRule
+                            ) {
+                                "Ya" -> true
+                                "Tidak" -> false
+                                else -> expense.includeInProfitLoss
+                            },
+                        )
+                    }
+                database.expenseDao().upsertAll(updatedExpenses)
+            }
+        }
+
+    suspend fun deleteExpenseCategory(category: ExpenseCategoryEntity) =
+        database.withTransaction {
+            val existing = database.expenseCategoryDao().getAll()
+                .firstOrNull { it.id == category.id }
+                ?: return@withTransaction
+            require(
+                database.expenseDao().getAll()
+                    .none { it.category == existing.name },
+            ) {
+                "Kategori masih digunakan oleh pengeluaran dan tidak dapat dihapus."
+            }
+            database.expenseCategoryDao().delete(existing)
+        }
 
     suspend fun updateSettings(setting: AppSettingEntity) =
         database.appSettingDao().upsert(setting)
