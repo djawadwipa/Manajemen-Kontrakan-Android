@@ -124,4 +124,10 @@ data class AppSettingEntity(
     val notificationEnabled: Boolean = false,
     val dueReminderDays: Int = 3,
     val notificationHour: Int = 8,
+    val themeMode: String = "SYSTEM",
+    val lockEnabled: Boolean = false,
+    val pinSalt: String = "",
+    val pinHash: String = "",
+    val biometricEnabled: Boolean = false,
+    val autoLockMinutes: Int = 1,
 )
