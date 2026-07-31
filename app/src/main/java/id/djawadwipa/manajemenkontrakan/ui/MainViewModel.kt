@@ -103,6 +103,16 @@ class MainViewModel @Inject constructor(
             repository.deleteExpense(expense)
         }
 
+    fun saveExpenseCategory(category: ExpenseCategoryEntity) =
+        launchAction("Kategori pengeluaran disimpan") {
+            repository.upsertExpenseCategory(category)
+        }
+
+    fun deleteExpenseCategory(category: ExpenseCategoryEntity) =
+        launchAction("Kategori pengeluaran dihapus") {
+            repository.deleteExpenseCategory(category)
+        }
+
     fun updateSettings(setting: AppSettingEntity) =
         launchAction("Pengaturan disimpan") {
             repository.updateSettings(setting)
