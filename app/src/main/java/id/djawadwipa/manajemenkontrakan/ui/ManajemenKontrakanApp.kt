@@ -3,11 +3,11 @@ package id.djawadwipa.manajemenkontrakan.ui
 import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Apartment
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -31,33 +32,49 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import id.djawadwipa.manajemenkontrakan.ui.screens.DashboardScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.ExpensesScreen
+import id.djawadwipa.manajemenkontrakan.ui.screens.InvoiceDetailScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.InvoicesScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.PaymentHistoryScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.ReportsScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.SettingsScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.UnitsScreen
 
-private data class Destination(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+private data class Destination(
+    val route: String,
+    val label: String,
+    val icon: ImageVector,
+)
+
 private val destinations = listOf(
     Destination("dashboard", "Dasbor", Icons.Default.Dashboard),
     Destination("units", "Unit", Icons.Default.Apartment),
-    Destination("invoices", "Tagihan", Icons.Default.ReceiptLong),
+    Destination(
+        "invoices",
+        "Tagihan",
+        Icons.AutoMirrored.Filled.ReceiptLong,
+    ),
     Destination("expenses", "Biaya", Icons.Default.Payments),
     Destination("reports", "Laporan", Icons.Default.Assessment),
     Destination("settings", "Atur", Icons.Default.Settings),
 )
 
 @Composable
-fun ManajemenKontrakanApp(viewModel: MainViewModel, onExit: () -> Unit) {
+fun ManajemenKontrakanApp(
+    viewModel: MainViewModel,
+    onExit: () -> Unit,
+) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val navController = rememberNavController()
     val snackbarHostState = remember { SnackbarHostState() }
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+
     val openDestination: (String) -> Unit = { route ->
         navController.navigate(route) {
-            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+            popUpTo(navController.graph.findStartDestination().id) {
+                saveState = true
+            }
             launchSingleTop = true
             restoreState = true
         }
@@ -76,50 +93,112 @@ fun ManajemenKontrakanApp(viewModel: MainViewModel, onExit: () -> Unit) {
             if (currentRoute in destinations.map { it.route }) {
                 NavigationBar {
                     destinations.forEach { destination ->
-                    NavigationBarItem(
-                        selected = currentRoute == destination.route,
-                        onClick = { openDestination(destination.route) },
-                        icon = { Icon(destination.icon, contentDescription = destination.label) },
-                        label = {
-                            Text(
-                                text = destination.label,
-                                maxLines = 1,
-                                softWrap = false,
-                                overflow = TextOverflow.Clip,
-                                fontSize = 10.sp,
-                            )
-                        },
+                        NavigationBarItem(
+                            selected = currentRoute == destination.route,
+                            onClick = {
+                                openDestination(destination.route)
+                            },
+                            icon = {
+                                Icon(
+                                    destination.icon,
+                                    contentDescription = destination.label,
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = destination.label,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    overflow = TextOverflow.Clip,
+                                    fontSize = 10.sp,
+                                )
+                            },
                         )
                     }
                 }
             }
         },
     ) { padding ->
-        NavHost(navController, startDestination = "dashboard", modifier = Modifier.padding(padding)) {
+        NavHost(
+            navController = navController,
+            startDestination = "dashboard",
+            modifier = Modifier.padding(padding),
+        ) {
             composable("dashboard") {
                 DashboardScreen(
                     state = state,
-                    onOpenReports = { openDestination("reports") },
-                    onOpenInvoices = { openDestination("invoices") },
-                    onOpenUnits = { openDestination("units") },
-                    onOpenExpenses = { openDestination("expenses") },
+                    onOpenReports = {
+                        openDestination("reports")
+                    },
+                    onOpenInvoices = {
+                        openDestination("invoices")
+                    },
+                    onOpenUnits = {
+                        openDestination("units")
+                    },
+                    onOpenExpenses = {
+                        openDestination("expenses")
+                    },
                 )
             }
-            composable("units") { UnitsScreen(state.units, viewModel::saveUnit, viewModel::deleteUnit) }
+
+            composable("units") {
+                UnitsScreen(
+                    units = state.units,
+                    onSave = viewModel::saveUnit,
+                    onDelete = viewModel::deleteUnit,
+                )
+            }
+
             composable("invoices") {
                 InvoicesScreen(
                     invoices = state.invoices,
+                    units = state.units,
                     settings = state.settings,
                     onPayment = viewModel::recordPayment,
                     onRegenerate = viewModel::regenerateInvoices,
-                    onOpenHistory = { invoice ->
+                    onCreateInvoice = viewModel::createInvoice,
+                    onOpenDetail = { invoice ->
                         navController.navigate(
-                            "invoice/${Uri.encode(invoice.id)}/payments",
+                            "invoice/${Uri.encode(invoice.id)}",
                         )
                     },
                 )
             }
-            composable("invoice/{invoiceId}/payments") { backStackEntry ->
+
+            composable("invoice/{invoiceId}") { backStackEntry ->
+                val invoiceId = Uri.decode(
+                    backStackEntry.arguments
+                        ?.getString("invoiceId")
+                        .orEmpty(),
+                )
+                val invoice = state.invoices.firstOrNull {
+                    it.id == invoiceId
+                }
+
+                if (invoice == null) {
+                    Text("Tagihan tidak ditemukan.")
+                } else {
+                    InvoiceDetailScreen(
+                        invoice = invoice,
+                        payments = state.payments.filter {
+                            it.invoiceId == invoice.id
+                        },
+                        onBack = { navController.popBackStack() },
+                        onOpenHistory = {
+                            navController.navigate(
+                                "invoice/${Uri.encode(invoice.id)}/payments",
+                            )
+                        },
+                        onUpdate = viewModel::updateInvoice,
+                        onDelete = viewModel::deleteInvoice,
+                    )
+                }
+            }
+
+            composable(
+                "invoice/{invoiceId}/payments",
+            ) { backStackEntry ->
                 val invoiceId = Uri.decode(
                     backStackEntry.arguments
                         ?.getString("invoiceId")
@@ -144,9 +223,22 @@ fun ManajemenKontrakanApp(viewModel: MainViewModel, onExit: () -> Unit) {
                     )
                 }
             }
-            composable("expenses") { ExpensesScreen(state, viewModel::saveExpense, viewModel::deleteExpense) }
-            composable("reports") { ReportsScreen(state, viewModel) }
-            composable("settings") { SettingsScreen(state, viewModel, onExit) }
+
+            composable("expenses") {
+                ExpensesScreen(
+                    state = state,
+                    onSave = viewModel::saveExpense,
+                    onDelete = viewModel::deleteExpense,
+                )
+            }
+
+            composable("reports") {
+                ReportsScreen(state, viewModel)
+            }
+
+            composable("settings") {
+                SettingsScreen(state, viewModel, onExit)
+            }
         }
     }
 }
