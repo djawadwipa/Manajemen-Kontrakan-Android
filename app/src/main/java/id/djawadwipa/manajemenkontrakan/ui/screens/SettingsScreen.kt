@@ -17,6 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.FileOpen
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -54,6 +56,7 @@ import id.djawadwipa.manajemenkontrakan.ui.components.ScreenHeader
 import id.djawadwipa.manajemenkontrakan.util.CsvExporter
 
 private enum class PasswordAction { BACKUP, RESTORE }
+private enum class BookAction { CLOSE, REOPEN }
 
 @Composable
 fun SettingsScreen(
@@ -65,6 +68,7 @@ fun SettingsScreen(
     val pendingBackup by viewModel.pendingBackup.collectAsStateWithLifecycle()
     val pendingCsv by viewModel.pendingCsv.collectAsStateWithLifecycle()
     var passwordAction by remember { mutableStateOf<PasswordAction?>(null) }
+    var bookAction by remember { mutableStateOf<BookAction?>(null) }
     var restoreBytes by remember { mutableStateOf<ByteArray?>(null) }
     var year by remember(state.settings.activeYear) { mutableStateOf(state.settings.activeYear.toString()) }
     var dashboardMonth by remember(state.settings.dashboardMonth) { mutableStateOf(state.settings.dashboardMonth.toString()) }
@@ -72,6 +76,9 @@ fun SettingsScreen(
     var reserve by remember(state.settings.reservePercent) { mutableStateOf((state.settings.reservePercent * 100).toInt().toString()) }
     var dueDay by remember(state.settings.defaultDueDay) { mutableStateOf(state.settings.defaultDueDay.toString()) }
     var showExitDialog by remember { mutableStateOf(false) }
+
+    val activePeriod = state.dashboardPeriod
+    val isBookClosed = state.isPeriodClosed(activePeriod)
 
     val createBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
         uri?.let { pendingBackup?.let { bytes -> writeBytes(context, it, bytes) } }
@@ -123,6 +130,7 @@ fun SettingsScreen(
                             reservePercent = (reserve.toDoubleOrNull() ?: 15.0) / 100,
                             defaultDueDay = dueDay.toIntOrNull()?.coerceIn(1, 31) ?: 10,
                             bookStatus = state.settings.bookStatus,
+                            closedPeriods = state.settings.closedPeriods,
                         )
                         viewModel.updateSettings(new)
                     }) { Icon(Icons.Default.Save, null); Text(" Simpan pengaturan") }
@@ -131,6 +139,53 @@ fun SettingsScreen(
         }
         item {
             Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text("Tutup/Buka Buku", style = MaterialTheme.typography.titleLarge)
+                    Text("Periode dashboard: $activePeriod")
+                    Text(
+                        if (isBookClosed) {
+                            "Status: DITUTUP. Tagihan, pembayaran, dan pengeluaran periode ini terkunci."
+                        } else {
+                            "Status: TERBUKA. Transaksi periode ini masih dapat diubah."
+                        },
+                        color = if (isBookClosed) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                    )
+                    if (isBookClosed) {
+                        OutlinedButton(
+                            onClick = { bookAction = BookAction.REOPEN },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Default.LockOpen, contentDescription = null)
+                            Text(" Buka buku kembali")
+                        }
+                    } else {
+                        Button(
+                            onClick = { bookAction = BookAction.CLOSE },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = null)
+                            Text(" Tutup buku periode $activePeriod")
+                        }
+                    }
+                    if (state.closedPeriods.isNotEmpty()) {
+                        Text(
+                            "Periode terkunci: ${state.closedPeriods.sorted().joinToString(", ")}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            Card(Modifier.fillMaxWidth().padding(16.dp)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Backup terenkripsi", style = MaterialTheme.typography.titleLarge)
                     Text(
@@ -227,6 +282,44 @@ fun SettingsScreen(
             passwordAction = null
             restoreBytes = null
         }
+    }
+
+    bookAction?.let { action ->
+        val closing = action == BookAction.CLOSE
+        AlertDialog(
+            onDismissRequest = { bookAction = null },
+            title = {
+                Text(if (closing) "Tutup buku $activePeriod?" else "Buka kembali buku $activePeriod?")
+            },
+            text = {
+                Text(
+                    if (closing) {
+                        "Setelah ditutup, tagihan, pembayaran, pembatalan, penghapusan, dan pengeluaran periode $activePeriod tidak dapat diubah sampai buku dibuka kembali."
+                    } else {
+                        "Transaksi periode $activePeriod akan dapat ditambah, diedit, dibatalkan, dan dihapus kembali."
+                    },
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (closing) {
+                            viewModel.closeBook(activePeriod)
+                        } else {
+                            viewModel.reopenBook(activePeriod)
+                        }
+                        bookAction = null
+                    },
+                ) {
+                    Text(if (closing) "Tutup buku" else "Buka kembali")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { bookAction = null }) {
+                    Text("Batal")
+                }
+            },
+        )
     }
 
     if (showExitDialog) {
