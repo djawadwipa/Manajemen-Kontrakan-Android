@@ -47,16 +47,18 @@ class RentalRepository @Inject constructor(
         database.rentalUnitDao().delete(unit)
 
     suspend fun regenerateInvoices(year: Int) = database.withTransaction {
+        val closed = closedPeriods(currentSettings())
         database.invoiceDao().insertAll(
             SeedData.invoices(
                 year,
                 database.rentalUnitDao().getAll(),
-            ),
+            ).filterNot { it.period in closed },
         )
     }
 
     suspend fun createInvoice(invoice: InvoiceEntity) =
         database.withTransaction {
+            requirePeriodOpen(invoice.period)
             val unit = requireNotNull(
                 database.rentalUnitDao().getById(invoice.unitId),
             ) {
@@ -90,6 +92,7 @@ class RentalRepository @Inject constructor(
             ) {
                 "Tagihan tidak ditemukan."
             }
+            requirePeriodOpen(existing.period)
             require(existing.unitId == invoice.unitId) {
                 "Unit tagihan tidak dapat diubah."
             }
@@ -123,6 +126,7 @@ class RentalRepository @Inject constructor(
             ) {
                 "Tagihan tidak ditemukan."
             }
+            requirePeriodOpen(existing.period)
             require(
                 database.paymentDao().getForInvoice(existing.id).isEmpty(),
             ) {
@@ -137,12 +141,7 @@ class RentalRepository @Inject constructor(
         unit: RentalUnitEntity,
         paid: Long,
     ): InvoiceEntity {
-        runCatching { YearMonth.parse(invoice.period) }
-            .getOrElse {
-                throw IllegalArgumentException(
-                    "Periode tagihan harus berformat yyyy-MM.",
-                )
-            }
+        parsePeriod(invoice.period)
         require(invoice.invoiceDate <= invoice.dueDate) {
             "Tanggal jatuh tempo tidak boleh sebelum tanggal dibuat."
         }
@@ -180,6 +179,7 @@ class RentalRepository @Inject constructor(
                     "Pembayaran tidak ditemukan."
                 }
 
+            requirePeriodOpen(existing.period)
             require(existing.invoiceId == payment.invoiceId) {
                 "Pembayaran tidak dapat dipindahkan ke tagihan lain."
             }
@@ -197,6 +197,7 @@ class RentalRepository @Inject constructor(
                     "Pembayaran tidak ditemukan."
                 }
 
+            requirePeriodOpen(existing.period)
             require(existing.status == "AKTIF") {
                 "Pembayaran sudah dibatalkan."
             }
@@ -217,6 +218,7 @@ class RentalRepository @Inject constructor(
                     "Pembayaran tidak ditemukan."
                 }
 
+            requirePeriodOpen(existing.period)
             database.paymentDao().delete(existing)
             recalculateInvoice(existing.invoiceId)
         }
@@ -228,6 +230,7 @@ class RentalRepository @Inject constructor(
             requireNotNull(database.invoiceDao().getById(payment.invoiceId)) {
                 "Tagihan tidak ditemukan."
             }
+        requirePeriodOpen(invoice.period)
 
         val existing = database.paymentDao().getById(payment.id)
         val currentTotal =
@@ -296,10 +299,41 @@ class RentalRepository @Inject constructor(
     }
 
     suspend fun upsertExpense(expense: ExpenseEntity) =
-        database.expenseDao().upsert(expense)
+        database.withTransaction {
+            val existing = database.expenseDao().getById(expense.id)
+            existing?.let { requirePeriodOpen(it.period) }
+            requirePeriodOpen(expense.period)
+
+            val expenseDate = LocalDate.ofEpochDay(expense.expenseDate)
+            require(expense.period == YearMonth.from(expenseDate).toString()) {
+                "Periode pengeluaran harus sesuai dengan tanggal pengeluaran."
+            }
+            require(expense.description.isNotBlank()) {
+                "Uraian pengeluaran wajib diisi."
+            }
+            require(expense.amount > 0L) {
+                "Nominal pengeluaran harus lebih dari nol."
+            }
+
+            database.expenseDao().upsert(
+                expense.copy(
+                    description = expense.description.trim(),
+                    receiptNumber = expense.receiptNumber.trim(),
+                    note = expense.note.trim(),
+                ),
+            )
+        }
 
     suspend fun deleteExpense(expense: ExpenseEntity) =
-        database.expenseDao().delete(expense)
+        database.withTransaction {
+            val existing = requireNotNull(
+                database.expenseDao().getById(expense.id),
+            ) {
+                "Pengeluaran tidak ditemukan."
+            }
+            requirePeriodOpen(existing.period)
+            database.expenseDao().delete(existing)
+        }
 
     suspend fun upsertExpenseCategory(category: ExpenseCategoryEntity) =
         database.withTransaction {
@@ -329,24 +363,33 @@ class RentalRepository @Inject constructor(
             }
 
             val existing = categories.firstOrNull { it.id == cleaned.id }
+            val affectedExpenses = if (existing == null) {
+                emptyList()
+            } else {
+                database.expenseDao().getAll()
+                    .filter { it.category == existing.name }
+            }
+            val closed = closedPeriods(currentSettings())
+            require(affectedExpenses.none { it.period in closed }) {
+                "Kategori digunakan pada periode yang sudah ditutup. Buka buku kembali sebelum mengubah kategori."
+            }
+
             database.expenseCategoryDao().upsert(cleaned)
 
             if (existing != null) {
-                val updatedExpenses = database.expenseDao().getAll()
-                    .filter { it.category == existing.name }
-                    .map { expense ->
-                        expense.copy(
-                            category = cleaned.name,
-                            groupName = cleaned.groupName,
-                            includeInProfitLoss = when (
-                                cleaned.profitLossRule
-                            ) {
-                                "Ya" -> true
-                                "Tidak" -> false
-                                else -> expense.includeInProfitLoss
-                            },
-                        )
-                    }
+                val updatedExpenses = affectedExpenses.map { expense ->
+                    expense.copy(
+                        category = cleaned.name,
+                        groupName = cleaned.groupName,
+                        includeInProfitLoss = when (
+                            cleaned.profitLossRule
+                        ) {
+                            "Ya" -> true
+                            "Tidak" -> false
+                            else -> expense.includeInProfitLoss
+                        },
+                    )
+                }
                 database.expenseDao().upsertAll(updatedExpenses)
             }
         }
@@ -366,12 +409,41 @@ class RentalRepository @Inject constructor(
         }
 
     suspend fun updateSettings(setting: AppSettingEntity) =
-        database.appSettingDao().upsert(setting)
+        database.withTransaction {
+            database.appSettingDao().upsert(normalizedSettings(setting))
+        }
+
+    suspend fun closeBook(period: String) = database.withTransaction {
+        parsePeriod(period)
+        val settings = currentSettings()
+        val closed = closedPeriods(settings).toMutableSet()
+        require(closed.add(period)) {
+            "Periode $period sudah ditutup."
+        }
+        database.appSettingDao().upsert(
+            normalizedSettings(
+                settings.copy(closedPeriods = serializePeriods(closed)),
+            ),
+        )
+    }
+
+    suspend fun reopenBook(period: String) = database.withTransaction {
+        parsePeriod(period)
+        val settings = currentSettings()
+        val closed = closedPeriods(settings).toMutableSet()
+        require(closed.remove(period)) {
+            "Periode $period sudah terbuka."
+        }
+        database.appSettingDao().upsert(
+            normalizedSettings(
+                settings.copy(closedPeriods = serializePeriods(closed)),
+            ),
+        )
+    }
 
     suspend fun exportPayload(): BackupPayload = BackupPayload(
         createdAtEpochMillis = System.currentTimeMillis(),
-        settings =
-            database.appSettingDao().get() ?: AppSettingEntity(),
+        settings = currentSettings(),
         units = database.rentalUnitDao().getAll(),
         invoices = database.invoiceDao().getAll(),
         payments = database.paymentDao().getAll(),
@@ -389,7 +461,7 @@ class RentalRepository @Inject constructor(
         database.rentalUnitDao().deleteAll()
         database.appSettingDao().deleteAll()
 
-        database.appSettingDao().upsert(payload.settings)
+        database.appSettingDao().upsert(normalizedSettings(payload.settings))
         database.rentalUnitDao().upsertAll(payload.units)
         database.expenseCategoryDao().upsertAll(payload.categories)
         database.invoiceDao().insertAll(payload.invoices)
@@ -399,5 +471,54 @@ class RentalRepository @Inject constructor(
         payload.invoices.forEach { invoice ->
             recalculateInvoice(invoice.id)
         }
+    }
+
+    private suspend fun currentSettings(): AppSettingEntity =
+        database.appSettingDao().get() ?: AppSettingEntity()
+
+    private suspend fun requirePeriodOpen(period: String) {
+        parsePeriod(period)
+        require(period !in closedPeriods(currentSettings())) {
+            "Periode $period sudah ditutup. Buka buku kembali sebelum mengubah transaksi."
+        }
+    }
+
+    private fun parsePeriod(period: String): YearMonth =
+        runCatching { YearMonth.parse(period) }
+            .getOrElse {
+                throw IllegalArgumentException(
+                    "Periode harus berformat yyyy-MM.",
+                )
+            }
+
+    private fun closedPeriods(settings: AppSettingEntity): Set<String> =
+        settings.closedPeriods
+            .split(',')
+            .map(String::trim)
+            .filter(String::isNotBlank)
+            .filter { runCatching { YearMonth.parse(it) }.isSuccess }
+            .toSortedSet()
+
+    private fun serializePeriods(periods: Set<String>): String =
+        periods.toSortedSet().joinToString(",")
+
+    private fun dashboardPeriod(settings: AppSettingEntity): String =
+        YearMonth.of(
+            settings.activeYear,
+            settings.dashboardMonth.coerceIn(1, 12),
+        ).toString()
+
+    private fun normalizedSettings(
+        setting: AppSettingEntity,
+    ): AppSettingEntity {
+        val closed = closedPeriods(setting)
+        return setting.copy(
+            bookStatus = if (dashboardPeriod(setting) in closed) {
+                "CLOSED"
+            } else {
+                "OPEN"
+            },
+            closedPeriods = serializePeriods(closed),
+        )
     }
 }
