@@ -9,7 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.Lifecycle
@@ -31,10 +31,10 @@ fun ManajemenKontrakanRoot(
         settings.pinSalt.isNotBlank() &&
         settings.pinHash.isNotBlank()
 
-    var sessionUnlocked by rememberSaveable {
+    var sessionUnlocked by remember {
         mutableStateOf(false)
     }
-    var backgroundAt by rememberSaveable {
+    var backgroundAt by remember {
         mutableLongStateOf(0L)
     }
 
