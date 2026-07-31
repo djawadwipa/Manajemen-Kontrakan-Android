@@ -57,6 +57,7 @@ fun ExpensesScreen(
     state: MainUiState,
     onSave: (ExpenseEntity) -> Unit,
     onDelete: (ExpenseEntity) -> Unit,
+    onOpenCategories: () -> Unit,
 ) {
     var editing by remember {
         mutableStateOf<ExpenseEntity?>(null)
@@ -81,10 +82,20 @@ fun ExpensesScreen(
                 .padding(padding),
         ) {
             item {
-                ScreenHeader(
-                    "Pengeluaran",
-                    "Catat, periksa, dan edit seluruh biaya",
-                )
+                Column {
+                    ScreenHeader(
+                        "Pengeluaran",
+                        "Catat, periksa, dan edit seluruh biaya",
+                    )
+                    OutlinedButton(
+                        onClick = onOpenCategories,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                    ) {
+                        Text("Kelola kategori pengeluaran")
+                    }
+                }
             }
 
             items(state.expenses, key = { it.id }) { expense ->
