@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExpenseEntity::class,
         AppSettingEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,6 +34,15 @@ abstract class AppDatabase : RoomDatabase() {
                 )
                 db.execSQL(
                     "ALTER TABLE payments ADD COLUMN canceledAt INTEGER",
+                )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE app_settings " +
+                        "ADD COLUMN closedPeriods TEXT NOT NULL DEFAULT ''",
                 )
             }
         }
