@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -30,11 +31,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import id.djawadwipa.manajemenkontrakan.notification.NotificationScheduler
 import id.djawadwipa.manajemenkontrakan.ui.screens.DashboardScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.ExpenseCategoriesScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.ExpensesScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.InvoiceDetailScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.InvoicesScreen
+import id.djawadwipa.manajemenkontrakan.ui.screens.NotificationSettingsScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.PaymentHistoryScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.ReportsScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.SettingsScreen
@@ -64,6 +67,7 @@ fun ManajemenKontrakanApp(
     viewModel: MainViewModel,
     onExit: () -> Unit,
 ) {
+    val context = LocalContext.current
     val state by viewModel.state.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val navController = rememberNavController()
@@ -86,6 +90,14 @@ fun ManajemenKontrakanApp(
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }
+    }
+
+    LaunchedEffect(
+        state.settings.notificationEnabled,
+        state.settings.dueReminderDays,
+        state.settings.notificationHour,
+    ) {
+        NotificationScheduler.sync(context, state.settings)
     }
 
     Scaffold(
@@ -251,7 +263,22 @@ fun ManajemenKontrakanApp(
             }
 
             composable("settings") {
-                SettingsScreen(state, viewModel, onExit)
+                SettingsScreen(
+                    state = state,
+                    viewModel = viewModel,
+                    onOpenNotifications = {
+                        navController.navigate("notification-settings")
+                    },
+                    onExit = onExit,
+                )
+            }
+
+            composable("notification-settings") {
+                NotificationSettingsScreen(
+                    settings = state.settings,
+                    onBack = { navController.popBackStack() },
+                    onSave = viewModel::updateSettings,
+                )
             }
         }
     }
