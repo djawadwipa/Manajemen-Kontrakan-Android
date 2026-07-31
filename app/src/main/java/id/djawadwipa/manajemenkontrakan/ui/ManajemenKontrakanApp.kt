@@ -40,6 +40,7 @@ import id.djawadwipa.manajemenkontrakan.ui.screens.InvoicesScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.NotificationSettingsScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.PaymentHistoryScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.ReportsScreen
+import id.djawadwipa.manajemenkontrakan.ui.screens.SecuritySettingsScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.SettingsScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.UnitsScreen
 
@@ -65,6 +66,7 @@ private val destinations = listOf(
 @Composable
 fun ManajemenKontrakanApp(
     viewModel: MainViewModel,
+    onLockNow: () -> Unit,
     onExit: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -269,6 +271,9 @@ fun ManajemenKontrakanApp(
                     onOpenNotifications = {
                         navController.navigate("notification-settings")
                     },
+                    onOpenSecurity = {
+                        navController.navigate("security-settings")
+                    },
                     onExit = onExit,
                 )
             }
@@ -278,6 +283,15 @@ fun ManajemenKontrakanApp(
                     settings = state.settings,
                     onBack = { navController.popBackStack() },
                     onSave = viewModel::updateSettings,
+                )
+            }
+
+            composable("security-settings") {
+                SecuritySettingsScreen(
+                    settings = state.settings,
+                    onBack = { navController.popBackStack() },
+                    onSave = viewModel::updateSettings,
+                    onLockNow = onLockNow,
                 )
             }
         }
