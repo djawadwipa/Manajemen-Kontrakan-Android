@@ -9,6 +9,7 @@ import id.djawadwipa.manajemenkontrakan.data.local.PaymentEntity
 import id.djawadwipa.manajemenkontrakan.data.local.RentalUnitEntity
 import id.djawadwipa.manajemenkontrakan.util.BackupPayload
 import java.time.LocalDate
+import java.time.YearMonth
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,6 +51,119 @@ class RentalRepository @Inject constructor(
                 year,
                 database.rentalUnitDao().getAll(),
             ),
+        )
+    }
+
+    suspend fun createInvoice(invoice: InvoiceEntity) =
+        database.withTransaction {
+            val unit = requireNotNull(
+                database.rentalUnitDao().getById(invoice.unitId),
+            ) {
+                "Unit tidak ditemukan."
+            }
+            require(unit.status == "Aktif") {
+                "Tagihan hanya dapat dibuat untuk unit aktif."
+            }
+            require(
+                database.invoiceDao().getByUnitAndPeriod(
+                    invoice.unitId,
+                    invoice.period,
+                ) == null,
+            ) {
+                "Tagihan unit untuk periode tersebut sudah ada."
+            }
+
+            database.invoiceDao().upsert(
+                normalizedInvoice(
+                    invoice = invoice,
+                    unit = unit,
+                    paid = 0L,
+                ),
+            )
+        }
+
+    suspend fun updateInvoice(invoice: InvoiceEntity) =
+        database.withTransaction {
+            val existing = requireNotNull(
+                database.invoiceDao().getById(invoice.id),
+            ) {
+                "Tagihan tidak ditemukan."
+            }
+            require(existing.unitId == invoice.unitId) {
+                "Unit tagihan tidak dapat diubah."
+            }
+            require(existing.period == invoice.period) {
+                "Periode tagihan tidak dapat diubah."
+            }
+
+            val unit = requireNotNull(
+                database.rentalUnitDao().getById(existing.unitId),
+            ) {
+                "Unit tidak ditemukan."
+            }
+            val paid = database.paymentDao().totalForInvoice(existing.id)
+
+            database.invoiceDao().upsert(
+                normalizedInvoice(
+                    invoice = invoice.copy(
+                        unitId = existing.unitId,
+                        period = existing.period,
+                    ),
+                    unit = unit,
+                    paid = paid,
+                ),
+            )
+        }
+
+    suspend fun deleteInvoice(invoice: InvoiceEntity) =
+        database.withTransaction {
+            val existing = requireNotNull(
+                database.invoiceDao().getById(invoice.id),
+            ) {
+                "Tagihan tidak ditemukan."
+            }
+            require(
+                database.paymentDao().getForInvoice(existing.id).isEmpty(),
+            ) {
+                "Tagihan memiliki riwayat pembayaran dan tidak dapat dihapus."
+            }
+
+            database.invoiceDao().delete(existing)
+        }
+
+    private fun normalizedInvoice(
+        invoice: InvoiceEntity,
+        unit: RentalUnitEntity,
+        paid: Long,
+    ): InvoiceEntity {
+        runCatching { YearMonth.parse(invoice.period) }
+            .getOrElse {
+                throw IllegalArgumentException(
+                    "Periode tagihan harus berformat yyyy-MM.",
+                )
+            }
+        require(invoice.invoiceDate <= invoice.dueDate) {
+            "Tanggal jatuh tempo tidak boleh sebelum tanggal dibuat."
+        }
+        require(invoice.amount > 0L) {
+            "Nominal tagihan harus lebih dari nol."
+        }
+        require(invoice.amount >= paid) {
+            "Nominal tagihan tidak boleh lebih kecil dari pembayaran aktif."
+        }
+        require(invoice.reserveTarget in 0L..invoice.amount) {
+            "Target dana cadangan harus berada antara nol dan nominal tagihan."
+        }
+
+        return invoice.copy(
+            tenantName = unit.tenantName,
+            paid = paid,
+            status = invoiceStatus(
+                amount = invoice.amount,
+                paid = paid,
+                dueDate = invoice.dueDate,
+            ),
+            note = invoice.note.trim(),
         )
     }
 
@@ -158,19 +272,26 @@ class RentalRepository @Inject constructor(
     private suspend fun recalculateInvoice(invoiceId: String) {
         val invoice = database.invoiceDao().getById(invoiceId) ?: return
         val total = database.paymentDao().totalForInvoice(invoiceId)
-        val status = when {
-            total >= invoice.amount -> "LUNAS"
-            total > 0 -> "CICILAN"
-            invoice.dueDate < LocalDate.now().toEpochDay() ->
-                "MENUNGGAK"
-            else -> "MENUNGGU"
-        }
-
         database.invoiceDao().updatePayment(
             id = invoice.id,
             paid = total,
-            status = status,
+            status = invoiceStatus(
+                amount = invoice.amount,
+                paid = total,
+                dueDate = invoice.dueDate,
+            ),
         )
+    }
+
+    private fun invoiceStatus(
+        amount: Long,
+        paid: Long,
+        dueDate: Long,
+    ): String = when {
+        paid >= amount -> "LUNAS"
+        paid > 0L -> "CICILAN"
+        dueDate < LocalDate.now().toEpochDay() -> "MENUNGGAK"
+        else -> "MENUNGGU"
     }
 
     suspend fun upsertExpense(expense: ExpenseEntity) =
@@ -209,5 +330,9 @@ class RentalRepository @Inject constructor(
         database.invoiceDao().insertAll(payload.invoices)
         database.paymentDao().insertAll(payload.payments)
         database.expenseDao().upsertAll(payload.expenses)
+
+        payload.invoices.forEach { invoice ->
+            recalculateInvoice(invoice.id)
+        }
     }
 }
