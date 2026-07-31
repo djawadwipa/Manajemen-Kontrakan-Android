@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -49,7 +50,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import id.djawadwipa.manajemenkontrakan.BuildConfig
 import id.djawadwipa.manajemenkontrakan.R
-import id.djawadwipa.manajemenkontrakan.data.local.AppSettingEntity
 import id.djawadwipa.manajemenkontrakan.ui.MainUiState
 import id.djawadwipa.manajemenkontrakan.ui.MainViewModel
 import id.djawadwipa.manajemenkontrakan.ui.components.ScreenHeader
@@ -62,6 +62,7 @@ private enum class BookAction { CLOSE, REOPEN }
 fun SettingsScreen(
     state: MainUiState,
     viewModel: MainViewModel,
+    onOpenNotifications: () -> Unit,
     onExit: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -70,86 +71,244 @@ fun SettingsScreen(
     var passwordAction by remember { mutableStateOf<PasswordAction?>(null) }
     var bookAction by remember { mutableStateOf<BookAction?>(null) }
     var restoreBytes by remember { mutableStateOf<ByteArray?>(null) }
-    var year by remember(state.settings.activeYear) { mutableStateOf(state.settings.activeYear.toString()) }
-    var dashboardMonth by remember(state.settings.dashboardMonth) { mutableStateOf(state.settings.dashboardMonth.toString()) }
-    var openingCash by remember(state.settings.openingCash) { mutableStateOf(state.settings.openingCash.toString()) }
-    var reserve by remember(state.settings.reservePercent) { mutableStateOf((state.settings.reservePercent * 100).toInt().toString()) }
-    var dueDay by remember(state.settings.defaultDueDay) { mutableStateOf(state.settings.defaultDueDay.toString()) }
+    var year by remember(state.settings.activeYear) {
+        mutableStateOf(state.settings.activeYear.toString())
+    }
+    var dashboardMonth by remember(state.settings.dashboardMonth) {
+        mutableStateOf(state.settings.dashboardMonth.toString())
+    }
+    var openingCash by remember(state.settings.openingCash) {
+        mutableStateOf(state.settings.openingCash.toString())
+    }
+    var reserve by remember(state.settings.reservePercent) {
+        mutableStateOf(
+            (state.settings.reservePercent * 100).toInt().toString(),
+        )
+    }
+    var dueDay by remember(state.settings.defaultDueDay) {
+        mutableStateOf(state.settings.defaultDueDay.toString())
+    }
     var showExitDialog by remember { mutableStateOf(false) }
 
     val activePeriod = state.dashboardPeriod
     val isBookClosed = state.isPeriodClosed(activePeriod)
 
-    val createBackup = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        uri?.let { pendingBackup?.let { bytes -> writeBytes(context, it, bytes) } }
+    val createBackup = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri ->
+        uri?.let {
+            pendingBackup?.let { bytes ->
+                writeBytes(context, it, bytes)
+            }
+        }
         viewModel.clearPendingBackup()
     }
-    val openBackup = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { restoreBytes = readBytes(context, it); passwordAction = PasswordAction.RESTORE }
+    val openBackup = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri?.let {
+            restoreBytes = readBytes(context, it)
+            passwordAction = PasswordAction.RESTORE
+        }
     }
-    val openCsv = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { viewModel.importUnitsCsv(readBytes(context, it).decodeToString()) }
+    val openCsv = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        uri?.let {
+            viewModel.importUnitsCsv(
+                readBytes(context, it).decodeToString(),
+            )
+        }
     }
-    val createTemplate = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        uri?.let { writeBytes(context, it, CsvExporter.unitTemplate().encodeToByteArray()) }
+    val createTemplate = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri ->
+        uri?.let {
+            writeBytes(
+                context,
+                it,
+                CsvExporter.unitTemplate().encodeToByteArray(),
+            )
+        }
     }
-    val createUnitsCsv = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        uri?.let { pendingCsv?.let { bytes -> writeBytes(context, it, bytes) } }
+    val createUnitsCsv = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri ->
+        uri?.let {
+            pendingCsv?.let { bytes ->
+                writeBytes(context, it, bytes)
+            }
+        }
         viewModel.clearPendingCsv()
     }
 
     LaunchedEffect(pendingBackup) {
-        if (pendingBackup != null) createBackup.launch("manajemen-kontrakan-${state.settings.activeYear}.mkbackup")
+        if (pendingBackup != null) {
+            createBackup.launch(
+                "manajemen-kontrakan-${state.settings.activeYear}.mkbackup",
+            )
+        }
     }
 
     LaunchedEffect(pendingCsv) {
         if (pendingCsv != null) {
-            createUnitsCsv.launch("unit-kontrakan-${state.settings.activeYear}.csv")
+            createUnitsCsv.launch(
+                "unit-kontrakan-${state.settings.activeYear}.csv",
+            )
         }
     }
 
     LazyColumn(Modifier.fillMaxSize()) {
-        item { ScreenHeader("Pengaturan & Data", "Semua data tersimpan lokal pada perangkat") }
         item {
-            Image(painterResource(R.drawable.logo_mk), "Logo Manajemen Kontrakan", Modifier.fillMaxWidth().height(150.dp).padding(12.dp), contentScale = ContentScale.Fit)
+            ScreenHeader(
+                "Pengaturan & Data",
+                "Semua data tersimpan lokal pada perangkat",
+            )
         }
         item {
-            Card(Modifier.fillMaxWidth().padding(16.dp)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Parameter bisnis", style = MaterialTheme.typography.titleLarge)
-                    OutlinedTextField(year, { year = it.filter(Char::isDigit) }, label = { Text("Tahun aktif") }, singleLine = true)
-                    OutlinedTextField(dashboardMonth, { dashboardMonth = it.filter(Char::isDigit) }, label = { Text("Bulan dashboard (1–12)") }, singleLine = true)
-                    OutlinedTextField(openingCash, { openingCash = it.filter(Char::isDigit) }, label = { Text("Saldo kas awal") }, singleLine = true)
-                    OutlinedTextField(reserve, { reserve = it.filter(Char::isDigit) }, label = { Text("Dana perbaikan (%)") }, singleLine = true)
-                    OutlinedTextField(dueDay, { dueDay = it.filter(Char::isDigit) }, label = { Text("Jatuh tempo default") }, singleLine = true)
-                    Button(onClick = {
-                        val new = AppSettingEntity(
-                            activeYear = year.toIntOrNull() ?: state.settings.activeYear,
-                            dashboardMonth = dashboardMonth.toIntOrNull()?.coerceIn(1, 12) ?: state.settings.dashboardMonth,
-                            openingCash = openingCash.toLongOrNull() ?: state.settings.openingCash,
-                            reservePercent = (reserve.toDoubleOrNull() ?: 15.0) / 100,
-                            defaultDueDay = dueDay.toIntOrNull()?.coerceIn(1, 31) ?: 10,
-                            bookStatus = state.settings.bookStatus,
-                            closedPeriods = state.settings.closedPeriods,
-                        )
-                        viewModel.updateSettings(new)
-                    }) { Icon(Icons.Default.Save, null); Text(" Simpan pengaturan") }
-                }
-            }
+            Image(
+                painter = painterResource(R.drawable.logo_mk),
+                contentDescription = "Logo Manajemen Kontrakan",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(150.dp)
+                    .padding(12.dp),
+                contentScale = ContentScale.Fit,
+            )
         }
         item {
-            Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            Card(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            ) {
                 Column(
                     Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("Tutup/Buka Buku", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Parameter bisnis",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    OutlinedTextField(
+                        year,
+                        { year = it.filter(Char::isDigit) },
+                        label = { Text("Tahun aktif") },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        dashboardMonth,
+                        { dashboardMonth = it.filter(Char::isDigit) },
+                        label = { Text("Bulan dashboard (1–12)") },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        openingCash,
+                        { openingCash = it.filter(Char::isDigit) },
+                        label = { Text("Saldo kas awal") },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        reserve,
+                        { reserve = it.filter(Char::isDigit) },
+                        label = { Text("Dana perbaikan (%)") },
+                        singleLine = true,
+                    )
+                    OutlinedTextField(
+                        dueDay,
+                        { dueDay = it.filter(Char::isDigit) },
+                        label = { Text("Jatuh tempo default") },
+                        singleLine = true,
+                    )
+                    Button(
+                        onClick = {
+                            viewModel.updateSettings(
+                                state.settings.copy(
+                                    activeYear = year.toIntOrNull()
+                                        ?: state.settings.activeYear,
+                                    dashboardMonth = dashboardMonth
+                                        .toIntOrNull()
+                                        ?.coerceIn(1, 12)
+                                        ?: state.settings.dashboardMonth,
+                                    openingCash = openingCash.toLongOrNull()
+                                        ?: state.settings.openingCash,
+                                    reservePercent =
+                                        (reserve.toDoubleOrNull() ?: 15.0) /
+                                            100,
+                                    defaultDueDay = dueDay.toIntOrNull()
+                                        ?.coerceIn(1, 31)
+                                        ?: 10,
+                                ),
+                            )
+                        },
+                    ) {
+                        Icon(Icons.Default.Save, contentDescription = null)
+                        Text(" Simpan pengaturan")
+                    }
+                }
+            }
+        }
+        item {
+            Card(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "Notifikasi tagihan",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        if (state.settings.notificationEnabled) {
+                            "Aktif • ${state.settings.dueReminderDays} hari " +
+                                "sebelum jatuh tempo • pukul " +
+                                "%02d:00".format(
+                                    state.settings.notificationHour,
+                                )
+                        } else {
+                            "Nonaktif"
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(
+                        onClick = onOpenNotifications,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = null,
+                        )
+                        Text(" Atur pengingat")
+                    }
+                }
+            }
+        }
+        item {
+            Card(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "Tutup/Buka Buku",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
                     Text("Periode dashboard: $activePeriod")
                     Text(
                         if (isBookClosed) {
-                            "Status: DITUTUP. Tagihan, pembayaran, dan pengeluaran periode ini terkunci."
+                            "Status: DITUTUP. Tagihan, pembayaran, dan " +
+                                "pengeluaran periode ini terkunci."
                         } else {
-                            "Status: TERBUKA. Transaksi periode ini masih dapat diubah."
+                            "Status: TERBUKA. Transaksi periode ini " +
+                                "masih dapat diubah."
                         },
                         color = if (isBookClosed) {
                             MaterialTheme.colorScheme.error
@@ -162,7 +321,10 @@ fun SettingsScreen(
                             onClick = { bookAction = BookAction.REOPEN },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Icon(Icons.Default.LockOpen, contentDescription = null)
+                            Icon(
+                                Icons.Default.LockOpen,
+                                contentDescription = null,
+                            )
                             Text(" Buka buku kembali")
                         }
                     } else {
@@ -170,13 +332,19 @@ fun SettingsScreen(
                             onClick = { bookAction = BookAction.CLOSE },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Icon(Icons.Default.Lock, contentDescription = null)
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = null,
+                            )
                             Text(" Tutup buku periode $activePeriod")
                         }
                     }
                     if (state.closedPeriods.isNotEmpty()) {
                         Text(
-                            "Periode terkunci: ${state.closedPeriods.sorted().joinToString(", ")}",
+                            "Periode terkunci: " +
+                                state.closedPeriods
+                                    .sorted()
+                                    .joinToString(", "),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -185,19 +353,63 @@ fun SettingsScreen(
             }
         }
         item {
-            Card(Modifier.fillMaxWidth().padding(16.dp)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Backup terenkripsi", style = MaterialTheme.typography.titleLarge)
+            Card(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
+                Column(
+                    Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     Text(
-                        "Gunakan backup untuk memindahkan seluruh data aplikasi ke HP lain: unit, tagihan, pembayaran, pengeluaran, kategori, dan pengaturan. Kata sandi tidak disimpan.",
+                        "Backup terenkripsi",
+                        style = MaterialTheme.typography.titleLarge,
                     )
-                    Button(onClick = { passwordAction = PasswordAction.BACKUP }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.Download, null); Text(" Buat backup .mkbackup") }
-                    Button(onClick = { openBackup.launch(arrayOf("application/octet-stream", "*/*")) }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.FileOpen, null); Text(" Pulihkan backup") }
+                    Text(
+                        "Gunakan backup untuk memindahkan seluruh data " +
+                            "aplikasi ke HP lain: unit, tagihan, " +
+                            "pembayaran, pengeluaran, kategori, dan " +
+                            "pengaturan. Kata sandi tidak disimpan.",
+                    )
+                    Button(
+                        onClick = {
+                            passwordAction = PasswordAction.BACKUP
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(
+                            Icons.Default.Download,
+                            contentDescription = null,
+                        )
+                        Text(" Buat backup .mkbackup")
+                    }
+                    Button(
+                        onClick = {
+                            openBackup.launch(
+                                arrayOf(
+                                    "application/octet-stream",
+                                    "*/*",
+                                ),
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(
+                            Icons.Default.FileOpen,
+                            contentDescription = null,
+                        )
+                        Text(" Pulihkan backup")
+                    }
                 }
             }
         }
         item {
-            Card(Modifier.fillMaxWidth().padding(16.dp)) {
+            Card(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+            ) {
                 Column(
                     Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -207,7 +419,9 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        "CSV digunakan untuk memindahkan daftar unit dan penyewa. Untuk seluruh data aplikasi, gunakan backup .mkbackup.",
+                        "CSV digunakan untuk memindahkan daftar unit dan " +
+                            "penyewa. Untuk seluruh data aplikasi, gunakan " +
+                            "backup .mkbackup.",
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -217,7 +431,10 @@ fun SettingsScreen(
                             onClick = viewModel::prepareUnitsCsv,
                             modifier = Modifier.weight(1f),
                         ) {
-                            Icon(Icons.Default.Download, contentDescription = null)
+                            Icon(
+                                Icons.Default.Download,
+                                contentDescription = null,
+                            )
                             Text(" Ekspor")
                         }
                         Button(
@@ -232,13 +449,18 @@ fun SettingsScreen(
                             },
                             modifier = Modifier.weight(1f),
                         ) {
-                            Icon(Icons.Default.FileOpen, contentDescription = null)
+                            Icon(
+                                Icons.Default.FileOpen,
+                                contentDescription = null,
+                            )
                             Text(" Impor")
                         }
                     }
                     OutlinedButton(
                         onClick = {
-                            createTemplate.launch("template-unit-kontrakan.csv")
+                            createTemplate.launch(
+                                "template-unit-kontrakan.csv",
+                            )
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -248,17 +470,27 @@ fun SettingsScreen(
             }
         }
         item {
-            Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            Card(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+            ) {
                 Column(
                     Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("Aplikasi", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Aplikasi",
+                        style = MaterialTheme.typography.titleLarge,
+                    )
                     OutlinedButton(
                         onClick = { showExitDialog = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Icon(Icons.Default.ExitToApp, contentDescription = null)
+                        Icon(
+                            Icons.Default.ExitToApp,
+                            contentDescription = null,
+                        )
                         Text(" Keluar aplikasi")
                     }
                 }
@@ -266,7 +498,8 @@ fun SettingsScreen(
         }
         item {
             Text(
-                text = "Versi ${BuildConfig.VERSION_NAME} • Djawa Dwipa • fanyagung@gmail.com",
+                text = "Versi ${BuildConfig.VERSION_NAME} • " +
+                    "Djawa Dwipa • fanyagung@gmail.com",
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(20.dp),
@@ -277,8 +510,17 @@ fun SettingsScreen(
     }
 
     passwordAction?.let { action ->
-        PasswordDialog(action == PasswordAction.BACKUP, onDismiss = { passwordAction = null }) { password ->
-            if (action == PasswordAction.BACKUP) viewModel.prepareBackup(password) else restoreBytes?.let { viewModel.restoreBackup(it, password) }
+        PasswordDialog(
+            creating = action == PasswordAction.BACKUP,
+            onDismiss = { passwordAction = null },
+        ) { password ->
+            if (action == PasswordAction.BACKUP) {
+                viewModel.prepareBackup(password)
+            } else {
+                restoreBytes?.let {
+                    viewModel.restoreBackup(it, password)
+                }
+            }
             passwordAction = null
             restoreBytes = null
         }
@@ -289,14 +531,25 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { bookAction = null },
             title = {
-                Text(if (closing) "Tutup buku $activePeriod?" else "Buka kembali buku $activePeriod?")
+                Text(
+                    if (closing) {
+                        "Tutup buku $activePeriod?"
+                    } else {
+                        "Buka kembali buku $activePeriod?"
+                    },
+                )
             },
             text = {
                 Text(
                     if (closing) {
-                        "Setelah ditutup, tagihan, pembayaran, pembatalan, penghapusan, dan pengeluaran periode $activePeriod tidak dapat diubah sampai buku dibuka kembali."
+                        "Setelah ditutup, tagihan, pembayaran, " +
+                            "pembatalan, penghapusan, dan pengeluaran " +
+                            "periode $activePeriod tidak dapat diubah " +
+                            "sampai buku dibuka kembali."
                     } else {
-                        "Transaksi periode $activePeriod akan dapat ditambah, diedit, dibatalkan, dan dihapus kembali."
+                        "Transaksi periode $activePeriod akan dapat " +
+                            "ditambah, diedit, dibatalkan, dan dihapus " +
+                            "kembali."
                     },
                 )
             },
@@ -311,7 +564,13 @@ fun SettingsScreen(
                         bookAction = null
                     },
                 ) {
-                    Text(if (closing) "Tutup buku" else "Buka kembali")
+                    Text(
+                        if (closing) {
+                            "Tutup buku"
+                        } else {
+                            "Buka kembali"
+                        },
+                    )
                 }
             },
             dismissButton = {
@@ -326,7 +585,12 @@ fun SettingsScreen(
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
             title = { Text("Keluar dari aplikasi?") },
-            text = { Text("Semua data tetap tersimpan lokal dan tidak akan dihapus.") },
+            text = {
+                Text(
+                    "Semua data tetap tersimpan lokal dan tidak akan " +
+                        "dihapus.",
+                )
+            },
             confirmButton = {
                 Button(
                     onClick = {
@@ -357,35 +621,40 @@ private fun PasswordDialog(
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmationVisible by remember { mutableStateOf(false) }
 
-    val valid =
-        password.length >= 8 &&
-            (!creating || password == confirmation)
+    val valid = password.length >= 8 &&
+        (!creating || password == confirmation)
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(if (creating) "Kata sandi backup" else "Buka backup")
+            Text(
+                if (creating) {
+                    "Kata sandi backup"
+                } else {
+                    "Buka backup"
+                },
+            )
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
                     if (creating) {
-                        "Gunakan minimal 8 karakter. Simpan kata sandi dengan aman; aplikasi tidak menyimpannya."
+                        "Gunakan minimal 8 karakter. Simpan kata sandi " +
+                            "dengan aman; aplikasi tidak menyimpannya."
                     } else {
-                        "Masukkan kata sandi yang digunakan saat backup dibuat."
+                        "Masukkan kata sandi yang digunakan saat backup " +
+                            "dibuat."
                     },
                 )
-
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Kata sandi") },
-                    visualTransformation =
-                        if (passwordVisible) {
-                            VisualTransformation.None
-                        } else {
-                            PasswordVisualTransformation()
-                        },
+                    visualTransformation = if (passwordVisible) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
                     trailingIcon = {
                         IconButton(
                             onClick = {
@@ -393,18 +662,16 @@ private fun PasswordDialog(
                             },
                         ) {
                             Icon(
-                                imageVector =
-                                    if (passwordVisible) {
-                                        Icons.Default.VisibilityOff
-                                    } else {
-                                        Icons.Default.Visibility
-                                    },
-                                contentDescription =
-                                    if (passwordVisible) {
-                                        "Sembunyikan kata sandi"
-                                    } else {
-                                        "Tampilkan kata sandi"
-                                    },
+                                imageVector = if (passwordVisible) {
+                                    Icons.Default.VisibilityOff
+                                } else {
+                                    Icons.Default.Visibility
+                                },
+                                contentDescription = if (passwordVisible) {
+                                    "Sembunyikan kata sandi"
+                                } else {
+                                    "Tampilkan kata sandi"
+                                },
                             )
                         }
                     },
@@ -466,5 +733,21 @@ private fun PasswordDialog(
     )
 }
 
-private fun readBytes(context: Context, uri: Uri): ByteArray = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("File tidak dapat dibaca.")
-private fun writeBytes(context: Context, uri: Uri, bytes: ByteArray) { context.contentResolver.openOutputStream(uri, "w")?.use { it.write(bytes) } ?: error("File tidak dapat ditulis.") }
+private fun readBytes(
+    context: Context,
+    uri: Uri,
+): ByteArray = context.contentResolver
+    .openInputStream(uri)
+    ?.use { it.readBytes() }
+    ?: error("File tidak dapat dibaca.")
+
+private fun writeBytes(
+    context: Context,
+    uri: Uri,
+    bytes: ByteArray,
+) {
+    context.contentResolver
+        .openOutputStream(uri, "w")
+        ?.use { it.write(bytes) }
+        ?: error("File tidak dapat ditulis.")
+}
