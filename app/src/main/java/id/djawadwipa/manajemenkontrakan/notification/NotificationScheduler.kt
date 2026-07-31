@@ -4,6 +4,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import androidx.core.app.NotificationManagerCompat
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -28,6 +29,7 @@ object NotificationScheduler {
         if (!settings.notificationEnabled) {
             workManager.cancelUniqueWork(PERIODIC_WORK_NAME)
             workManager.cancelUniqueWork(IMMEDIATE_WORK_NAME)
+            NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
             return
         }
 
