@@ -120,4 +120,5 @@ data class AppSettingEntity(
     val reservePercent: Double = 0.15,
     val defaultDueDay: Int = 10,
     val bookStatus: String = "OPEN",
+    val closedPeriods: String = "",
 )
