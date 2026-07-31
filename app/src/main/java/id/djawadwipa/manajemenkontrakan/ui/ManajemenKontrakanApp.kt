@@ -1,5 +1,6 @@
 package id.djawadwipa.manajemenkontrakan.ui
 
+import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Apartment
@@ -31,6 +32,7 @@ import androidx.navigation.compose.rememberNavController
 import id.djawadwipa.manajemenkontrakan.ui.screens.DashboardScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.ExpensesScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.InvoicesScreen
+import id.djawadwipa.manajemenkontrakan.ui.screens.PaymentHistoryScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.ReportsScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.SettingsScreen
 import id.djawadwipa.manajemenkontrakan.ui.screens.UnitsScreen
@@ -71,8 +73,9 @@ fun ManajemenKontrakanApp(viewModel: MainViewModel, onExit: () -> Unit) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            NavigationBar {
-                destinations.forEach { destination ->
+            if (currentRoute in destinations.map { it.route }) {
+                NavigationBar {
+                    destinations.forEach { destination ->
                     NavigationBarItem(
                         selected = currentRoute == destination.route,
                         onClick = { openDestination(destination.route) },
@@ -86,7 +89,8 @@ fun ManajemenKontrakanApp(viewModel: MainViewModel, onExit: () -> Unit) {
                                 fontSize = 10.sp,
                             )
                         },
-                    )
+                        )
+                    }
                 }
             }
         },
@@ -102,7 +106,44 @@ fun ManajemenKontrakanApp(viewModel: MainViewModel, onExit: () -> Unit) {
                 )
             }
             composable("units") { UnitsScreen(state.units, viewModel::saveUnit, viewModel::deleteUnit) }
-            composable("invoices") { InvoicesScreen(state.invoices, state.settings, viewModel::recordPayment, viewModel::regenerateInvoices) }
+            composable("invoices") {
+                InvoicesScreen(
+                    invoices = state.invoices,
+                    settings = state.settings,
+                    onPayment = viewModel::recordPayment,
+                    onRegenerate = viewModel::regenerateInvoices,
+                    onOpenHistory = { invoice ->
+                        navController.navigate(
+                            "invoice/${Uri.encode(invoice.id)}/payments",
+                        )
+                    },
+                )
+            }
+            composable("invoice/{invoiceId}/payments") { backStackEntry ->
+                val invoiceId = Uri.decode(
+                    backStackEntry.arguments
+                        ?.getString("invoiceId")
+                        .orEmpty(),
+                )
+                val invoice = state.invoices.firstOrNull {
+                    it.id == invoiceId
+                }
+
+                if (invoice == null) {
+                    Text("Tagihan tidak ditemukan.")
+                } else {
+                    PaymentHistoryScreen(
+                        invoice = invoice,
+                        payments = state.payments.filter {
+                            it.invoiceId == invoice.id
+                        },
+                        onBack = { navController.popBackStack() },
+                        onUpdate = viewModel::updatePayment,
+                        onCancel = viewModel::cancelPayment,
+                        onDelete = viewModel::deletePayment,
+                    )
+                }
+            }
             composable("expenses") { ExpensesScreen(state, viewModel::saveExpense, viewModel::deleteExpense) }
             composable("reports") { ReportsScreen(state, viewModel) }
             composable("settings") { SettingsScreen(state, viewModel, onExit) }

@@ -73,7 +73,6 @@ class MainViewModel @Inject constructor(private val repository: RentalRepository
 
     fun recordPayment(invoice: InvoiceEntity, amount: Long, method: String, receipt: String, note: String) =
         launchAction("Pembayaran tercatat") {
-            val installment = state.value.payments.count { it.invoiceId == invoice.id } + 1
             repository.recordPayment(
                 PaymentEntity(
                     id = "PAY-${UUID.randomUUID()}",
@@ -82,13 +81,28 @@ class MainViewModel @Inject constructor(private val repository: RentalRepository
                     tenantName = invoice.tenantName,
                     period = invoice.period,
                     paymentDate = LocalDate.now().toEpochDay(),
-                    installmentNumber = installment,
+                    installmentNumber = 0,
                     amount = amount,
                     method = method,
                     receiptNumber = receipt,
                     note = note,
                 ),
             )
+        }
+
+    fun updatePayment(payment: PaymentEntity) =
+        launchAction("Pembayaran diperbarui") {
+            repository.updatePayment(payment)
+        }
+
+    fun cancelPayment(payment: PaymentEntity) =
+        launchAction("Pembayaran dibatalkan dan tagihan dihitung ulang") {
+            repository.cancelPayment(payment)
+        }
+
+    fun deletePayment(payment: PaymentEntity) =
+        launchAction("Pembayaran dihapus dan tagihan dihitung ulang") {
+            repository.deletePayment(payment)
         }
 
     fun prepareBackup(password: String) = launchAction(null) {

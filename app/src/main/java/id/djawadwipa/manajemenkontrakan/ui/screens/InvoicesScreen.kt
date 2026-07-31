@@ -44,6 +44,7 @@ fun InvoicesScreen(
     settings: AppSettingEntity,
     onPayment: (InvoiceEntity, Long, String, String, String) -> Unit,
     onRegenerate: (Int) -> Unit,
+    onOpenHistory: (InvoiceEntity) -> Unit,
 ) {
     var filter by remember { mutableStateOf("SEMUA") }
     var paymentInvoice by remember { mutableStateOf<InvoiceEntity?>(null) }
@@ -86,8 +87,8 @@ fun InvoicesScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp)
-                    .clickable(enabled = invoice.status != "LUNAS") {
-                        paymentInvoice = invoice
+                    .clickable {
+                        onOpenHistory(invoice)
                     },
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

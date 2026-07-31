@@ -70,6 +70,8 @@ data class PaymentEntity(
     val method: String,
     val receiptNumber: String = "",
     val note: String = "",
+    val status: String = "AKTIF",
+    val canceledAt: Long? = null,
 )
 
 @Serializable

@@ -32,12 +32,44 @@ interface InvoiceDao {
 
 @Dao
 interface PaymentDao {
-    @Query("SELECT * FROM payments ORDER BY paymentDate DESC") fun observeAll(): Flow<List<PaymentEntity>>
-    @Query("SELECT * FROM payments ORDER BY paymentDate") suspend fun getAll(): List<PaymentEntity>
-    @Query("SELECT COALESCE(SUM(amount), 0) FROM payments WHERE invoiceId = :invoiceId") suspend fun totalForInvoice(invoiceId: String): Long
-    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insert(item: PaymentEntity)
-    @Insert(onConflict = OnConflictStrategy.REPLACE) suspend fun insertAll(items: List<PaymentEntity>)
-    @Query("DELETE FROM payments") suspend fun deleteAll()
+    @Query("SELECT * FROM payments ORDER BY paymentDate DESC, installmentNumber DESC")
+    fun observeAll(): Flow<List<PaymentEntity>>
+
+    @Query("SELECT * FROM payments ORDER BY paymentDate, installmentNumber")
+    suspend fun getAll(): List<PaymentEntity>
+
+    @Query("SELECT * FROM payments WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): PaymentEntity?
+
+    @Query(
+        "SELECT * FROM payments WHERE invoiceId = :invoiceId " +
+            "ORDER BY paymentDate, installmentNumber, id",
+    )
+    suspend fun getForInvoice(invoiceId: String): List<PaymentEntity>
+
+    @Query(
+        "SELECT COALESCE(SUM(amount), 0) FROM payments " +
+            "WHERE invoiceId = :invoiceId AND status = 'AKTIF'",
+    )
+    suspend fun totalForInvoice(invoiceId: String): Long
+
+    @Query(
+        "SELECT COALESCE(MAX(installmentNumber), 0) FROM payments " +
+            "WHERE invoiceId = :invoiceId",
+    )
+    suspend fun maxInstallmentNumber(invoiceId: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(item: PaymentEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(items: List<PaymentEntity>)
+
+    @Delete
+    suspend fun delete(item: PaymentEntity)
+
+    @Query("DELETE FROM payments")
+    suspend fun deleteAll()
 }
 
 @Dao

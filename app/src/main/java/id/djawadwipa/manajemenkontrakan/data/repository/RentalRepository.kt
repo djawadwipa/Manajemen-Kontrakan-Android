@@ -13,7 +13,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class RentalRepository @Inject constructor(private val database: AppDatabase) {
+class RentalRepository @Inject constructor(
+    private val database: AppDatabase,
+) {
     val units = database.rentalUnitDao().observeAll()
     val invoices = database.invoiceDao().observeAll()
     val payments = database.paymentDao().observeAll()
@@ -26,7 +28,12 @@ class RentalRepository @Inject constructor(private val database: AppDatabase) {
             database.appSettingDao().upsert(SeedData.settings)
             database.rentalUnitDao().upsertAll(SeedData.units)
             database.expenseCategoryDao().upsertAll(SeedData.categories)
-            database.invoiceDao().insertAll(SeedData.invoices(SeedData.settings.activeYear, SeedData.units))
+            database.invoiceDao().insertAll(
+                SeedData.invoices(
+                    SeedData.settings.activeYear,
+                    SeedData.units,
+                ),
+            )
         }
     }
 
@@ -34,34 +41,151 @@ class RentalRepository @Inject constructor(private val database: AppDatabase) {
         database.rentalUnitDao().upsert(unit)
     }
 
-    suspend fun deleteUnit(unit: RentalUnitEntity) = database.rentalUnitDao().delete(unit)
+    suspend fun deleteUnit(unit: RentalUnitEntity) =
+        database.rentalUnitDao().delete(unit)
 
     suspend fun regenerateInvoices(year: Int) = database.withTransaction {
-        database.invoiceDao().insertAll(SeedData.invoices(year, database.rentalUnitDao().getAll()))
+        database.invoiceDao().insertAll(
+            SeedData.invoices(
+                year,
+                database.rentalUnitDao().getAll(),
+            ),
+        )
     }
 
-    suspend fun recordPayment(payment: PaymentEntity) = database.withTransaction {
-        val invoice = database.invoiceDao().getById(payment.invoiceId) ?: return@withTransaction
-        val remaining = (invoice.amount - invoice.paid).coerceAtLeast(0)
-        require(payment.amount in 1..remaining) { "Nominal pembayaran melebihi sisa tagihan." }
-        database.paymentDao().insert(payment)
-        val total = database.paymentDao().totalForInvoice(invoice.id)
+    suspend fun recordPayment(payment: PaymentEntity) =
+        database.withTransaction {
+            savePaymentAndRecalculate(payment)
+        }
+
+    suspend fun updatePayment(payment: PaymentEntity) =
+        database.withTransaction {
+            val existing =
+                requireNotNull(database.paymentDao().getById(payment.id)) {
+                    "Pembayaran tidak ditemukan."
+                }
+
+            require(existing.invoiceId == payment.invoiceId) {
+                "Pembayaran tidak dapat dipindahkan ke tagihan lain."
+            }
+            require(existing.status == "AKTIF") {
+                "Pembayaran yang dibatalkan tidak dapat diedit."
+            }
+
+            savePaymentAndRecalculate(payment)
+        }
+
+    suspend fun cancelPayment(payment: PaymentEntity) =
+        database.withTransaction {
+            val existing =
+                requireNotNull(database.paymentDao().getById(payment.id)) {
+                    "Pembayaran tidak ditemukan."
+                }
+
+            require(existing.status == "AKTIF") {
+                "Pembayaran sudah dibatalkan."
+            }
+
+            database.paymentDao().insert(
+                existing.copy(
+                    status = "DIBATALKAN",
+                    canceledAt = System.currentTimeMillis(),
+                ),
+            )
+            recalculateInvoice(existing.invoiceId)
+        }
+
+    suspend fun deletePayment(payment: PaymentEntity) =
+        database.withTransaction {
+            val existing =
+                requireNotNull(database.paymentDao().getById(payment.id)) {
+                    "Pembayaran tidak ditemukan."
+                }
+
+            database.paymentDao().delete(existing)
+            recalculateInvoice(existing.invoiceId)
+        }
+
+    private suspend fun savePaymentAndRecalculate(
+        payment: PaymentEntity,
+    ) {
+        val invoice =
+            requireNotNull(database.invoiceDao().getById(payment.invoiceId)) {
+                "Tagihan tidak ditemukan."
+            }
+
+        val existing = database.paymentDao().getById(payment.id)
+        val currentTotal =
+            database.paymentDao().totalForInvoice(invoice.id)
+        val totalWithoutCurrent =
+            currentTotal - if (existing?.status == "AKTIF") {
+                existing.amount
+            } else {
+                0L
+            }
+        val newTotal = totalWithoutCurrent + payment.amount
+
+        require(existing?.status != "DIBATALKAN") {
+            "Pembayaran yang dibatalkan tidak dapat diedit."
+        }
+        require(payment.amount > 0) {
+            "Nominal pembayaran harus lebih dari nol."
+        }
+        require(newTotal <= invoice.amount) {
+            "Nominal pembayaran melebihi sisa tagihan."
+        }
+
+        val installmentNumber =
+            existing?.installmentNumber
+                ?: database.paymentDao()
+                    .maxInstallmentNumber(invoice.id) + 1
+
+        database.paymentDao().insert(
+            payment.copy(
+                invoiceId = invoice.id,
+                unitId = invoice.unitId,
+                tenantName = invoice.tenantName,
+                period = invoice.period,
+                installmentNumber = installmentNumber,
+                status = "AKTIF",
+                canceledAt = null,
+            ),
+        )
+
+        recalculateInvoice(invoice.id)
+    }
+
+    private suspend fun recalculateInvoice(invoiceId: String) {
+        val invoice = database.invoiceDao().getById(invoiceId) ?: return
+        val total = database.paymentDao().totalForInvoice(invoiceId)
         val status = when {
             total >= invoice.amount -> "LUNAS"
             total > 0 -> "CICILAN"
-            invoice.dueDate < LocalDate.now().toEpochDay() -> "MENUNGGAK"
+            invoice.dueDate < LocalDate.now().toEpochDay() ->
+                "MENUNGGAK"
             else -> "MENUNGGU"
         }
-        database.invoiceDao().updatePayment(invoice.id, total, status)
+
+        database.invoiceDao().updatePayment(
+            id = invoice.id,
+            paid = total,
+            status = status,
+        )
     }
 
-    suspend fun upsertExpense(expense: ExpenseEntity) = database.expenseDao().upsert(expense)
-    suspend fun deleteExpense(expense: ExpenseEntity) = database.expenseDao().delete(expense)
-    suspend fun updateSettings(setting: AppSettingEntity) = database.appSettingDao().upsert(setting)
+    suspend fun upsertExpense(expense: ExpenseEntity) =
+        database.expenseDao().upsert(expense)
+
+    suspend fun deleteExpense(expense: ExpenseEntity) =
+        database.expenseDao().delete(expense)
+
+    suspend fun updateSettings(setting: AppSettingEntity) =
+        database.appSettingDao().upsert(setting)
 
     suspend fun exportPayload(): BackupPayload = BackupPayload(
         createdAtEpochMillis = System.currentTimeMillis(),
-        settings = database.appSettingDao().get() ?: AppSettingEntity(),
+        settings =
+            database.appSettingDao().get() ?: AppSettingEntity(),
         units = database.rentalUnitDao().getAll(),
         invoices = database.invoiceDao().getAll(),
         payments = database.paymentDao().getAll(),
@@ -69,7 +193,9 @@ class RentalRepository @Inject constructor(private val database: AppDatabase) {
         expenses = database.expenseDao().getAll(),
     )
 
-    suspend fun restorePayload(payload: BackupPayload) = database.withTransaction {
+    suspend fun restorePayload(
+        payload: BackupPayload,
+    ) = database.withTransaction {
         database.paymentDao().deleteAll()
         database.expenseDao().deleteAll()
         database.invoiceDao().deleteAll()
