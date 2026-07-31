@@ -118,6 +118,16 @@ class MainViewModel @Inject constructor(
             repository.updateSettings(setting)
         }
 
+    fun closeBook(period: String) =
+        launchAction("Buku periode $period ditutup") {
+            repository.closeBook(period)
+        }
+
+    fun reopenBook(period: String) =
+        launchAction("Buku periode $period dibuka kembali") {
+            repository.reopenBook(period)
+        }
+
     fun regenerateInvoices(year: Int) =
         launchAction("Tagihan tahun $year dibuat") {
             repository.regenerateInvoices(year)
@@ -270,6 +280,16 @@ data class MainUiState(
 ) {
     val activePayments: List<PaymentEntity>
         get() = payments.filter { it.status == "AKTIF" }
+
+    val closedPeriods: Set<String>
+        get() = settings.closedPeriods
+            .split(',')
+            .map(String::trim)
+            .filter(String::isNotBlank)
+            .toSet()
+
+    fun isPeriodClosed(period: String): Boolean =
+        period in closedPeriods
 
     val activeUnits: Int
         get() = units.count { it.status == "Aktif" }
