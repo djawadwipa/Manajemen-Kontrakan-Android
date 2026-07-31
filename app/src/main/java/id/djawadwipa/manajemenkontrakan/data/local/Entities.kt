@@ -121,4 +121,7 @@ data class AppSettingEntity(
     val defaultDueDay: Int = 10,
     val bookStatus: String = "OPEN",
     val closedPeriods: String = "",
+    val notificationEnabled: Boolean = false,
+    val dueReminderDays: Int = 3,
+    val notificationHour: Int = 8,
 )
