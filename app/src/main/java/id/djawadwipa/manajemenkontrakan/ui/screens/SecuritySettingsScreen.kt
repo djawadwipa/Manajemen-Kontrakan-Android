@@ -19,6 +19,8 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -40,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import id.djawadwipa.manajemenkontrakan.data.local.AppSettingEntity
 import id.djawadwipa.manajemenkontrakan.security.PinSecurity
@@ -457,13 +460,35 @@ private fun PinField(
     label: String,
     isError: Boolean,
 ) {
+    var pinVisible by remember { mutableStateOf(false) }
+
     OutlinedTextField(
         value = value,
         onValueChange = {
             onValueChange(it.filter(Char::isDigit).take(8))
         },
         label = { Text(label) },
-        visualTransformation = PasswordVisualTransformation(),
+        visualTransformation = if (pinVisible) {
+            VisualTransformation.None
+        } else {
+            PasswordVisualTransformation()
+        },
+        trailingIcon = {
+            IconButton(onClick = { pinVisible = !pinVisible }) {
+                Icon(
+                    if (pinVisible) {
+                        Icons.Default.VisibilityOff
+                    } else {
+                        Icons.Default.Visibility
+                    },
+                    contentDescription = if (pinVisible) {
+                        "Sembunyikan PIN"
+                    } else {
+                        "Tampilkan PIN"
+                    },
+                )
+            }
+        },
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.NumberPassword,
         ),
