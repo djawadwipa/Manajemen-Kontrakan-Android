@@ -1,6 +1,7 @@
 package id.djawadwipa.manajemenkontrakan.notification
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -74,6 +75,7 @@ class DueReminderWorker(
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun showNotification(
         overdue: List<InvoiceEntity>,
         dueSoon: List<InvoiceEntity>,
