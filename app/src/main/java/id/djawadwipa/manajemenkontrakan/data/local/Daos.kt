@@ -151,6 +151,9 @@ interface ExpenseDao {
     @Query("SELECT * FROM expenses ORDER BY expenseDate")
     suspend fun getAll(): List<ExpenseEntity>
 
+    @Query("SELECT * FROM expenses WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): ExpenseEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(item: ExpenseEntity)
 
