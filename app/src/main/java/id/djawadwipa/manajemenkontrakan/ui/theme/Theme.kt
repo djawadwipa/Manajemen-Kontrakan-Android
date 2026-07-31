@@ -32,7 +32,15 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun ManajemenKontrakanTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
+fun ManajemenKontrakanTheme(
+    themeMode: String = "SYSTEM",
+    content: @Composable () -> Unit,
+) {
+    val darkTheme = when (themeMode.uppercase()) {
+        "DARK" -> true
+        "LIGHT" -> false
+        else -> isSystemInDarkTheme()
+    }
     val colors = if (darkTheme) DarkColors else LightColors
     val view = LocalView.current
     if (!view.isInEditMode) {
@@ -40,8 +48,18 @@ fun ManajemenKontrakanTheme(darkTheme: Boolean = isSystemInDarkTheme(), content:
             val window = (view.context as Activity).window
             window.statusBarColor = colors.background.toArgb()
             window.navigationBarColor = colors.background.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(
+                window,
+                view,
+            ).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
         }
     }
-    MaterialTheme(colorScheme = colors, typography = Typography, content = content)
+    MaterialTheme(
+        colorScheme = colors,
+        typography = Typography,
+        content = content,
+    )
 }
