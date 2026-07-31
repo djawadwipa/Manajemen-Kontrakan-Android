@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         ExpenseEntity::class,
         AppSettingEntity::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -61,6 +61,35 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "ALTER TABLE app_settings " +
                         "ADD COLUMN notificationHour INTEGER NOT NULL DEFAULT 8",
+                )
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE app_settings " +
+                        "ADD COLUMN themeMode TEXT NOT NULL DEFAULT 'SYSTEM'",
+                )
+                db.execSQL(
+                    "ALTER TABLE app_settings " +
+                        "ADD COLUMN lockEnabled INTEGER NOT NULL DEFAULT 0",
+                )
+                db.execSQL(
+                    "ALTER TABLE app_settings " +
+                        "ADD COLUMN pinSalt TEXT NOT NULL DEFAULT ''",
+                )
+                db.execSQL(
+                    "ALTER TABLE app_settings " +
+                        "ADD COLUMN pinHash TEXT NOT NULL DEFAULT ''",
+                )
+                db.execSQL(
+                    "ALTER TABLE app_settings " +
+                        "ADD COLUMN biometricEnabled INTEGER NOT NULL DEFAULT 0",
+                )
+                db.execSQL(
+                    "ALTER TABLE app_settings " +
+                        "ADD COLUMN autoLockMinutes INTEGER NOT NULL DEFAULT 1",
                 )
             }
         }
