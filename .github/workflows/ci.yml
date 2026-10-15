@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload lint SARIF
         if: always() && hashFiles('app/build/reports/lint-results-release.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v4.37.3
         with:
           sarif_file: app/build/reports/lint-results-release.sarif
 
